@@ -1,0 +1,14 @@
+{
+  "name": "@crm/worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --config ../../tooling/testing/vitest.config.ts --passWithNoTests",
+    "clean": "rimraf dist coverage"
+  }
+}

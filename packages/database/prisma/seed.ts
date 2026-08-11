@@ -1,0 +1,205 @@
+import { config } from 'dotenv';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const scriptDirectory = dirname(fileURLToPath(import.meta.url));
+config({ path: resolve(scriptDirectory, '../../../.env'), quiet: true });
+
+const { createDatabaseClient } = await import('../src/index.js');
+const prisma = createDatabaseClient();
+
+const organizationName = process.env.SEED_ORGANIZATION_NAME?.trim() || 'CRM ADS WhatsApp';
+const organizationSlug = process.env.SEED_ORGANIZATION_SLUG?.trim() || 'crm-ads-whatsapp';
+const teamName = process.env.SEED_TEAM_NAME?.trim() || 'Equipe Principal';
+const teamSlug = process.env.SEED_TEAM_SLUG?.trim() || 'equipe-principal';
+const adminEmail = (process.env.SEED_ADMIN_EMAIL?.trim() || 'admin@example.com').toLowerCase();
+const adminName = process.env.SEED_ADMIN_NAME?.trim() || 'Administrador';
+const adminEmployeeCode = process.env.SEED_ADMIN_EMPLOYEE_CODE?.trim() || 'ADMIN001';
+
+const permissionDefinitions = [
+  ['organization.read', 'Visualizar a organização'],
+  ['organization.manage', 'Gerenciar a organização'],
+  ['team.read', 'Visualizar equipes'],
+  ['team.manage', 'Gerenciar equipes'],
+  ['user.read', 'Visualizar usuários'],
+  ['user.manage', 'Gerenciar usuários'],
+  ['employee.read', 'Visualizar funcionários'],
+  ['employee.manage', 'Gerenciar funcionários'],
+  ['audit.read', 'Visualizar auditoria'],
+  ['profile.read', 'Visualizar o próprio perfil'],
+  ['profile.update', 'Atualizar o próprio perfil'],
+] as const;
+
+async function seed(): Promise<void> {
+  const organization = await prisma.organization.upsert({
+    where: { slug: organizationSlug },
+    create: {
+      name: organizationName,
+      slug: organizationSlug,
+    },
+    update: {
+      name: organizationName,
+      status: 'ACTIVE',
+    },
+  });
+
+  const team = await prisma.team.upsert({
+    where: {
+      organizationId_slug: {
+        organizationId: organization.id,
+        slug: teamSlug,
+      },
+    },
+    create: {
+      organizationId: organization.id,
+      name: teamName,
+      slug: teamSlug,
+    },
+    update: {
+      name: teamName,
+      status: 'ACTIVE',
+    },
+  });
+
+  const permissions = await Promise.all(
+    permissionDefinitions.map(([code, description]) =>
+      prisma.permission.upsert({
+        where: { code },
+        create: { code, description },
+        update: { description },
+      }),
+    ),
+  );
+
+  const adminRole = await prisma.role.upsert({
+    where: {
+      organizationId_code: {
+        organizationId: organization.id,
+        code: 'ADMIN',
+      },
+    },
+    create: {
+      organizationId: organization.id,
+      code: 'ADMIN',
+      name: 'Administrador',
+      description: 'Acesso administrativo integral à organização.',
+      isSystem: true,
+    },
+    update: {
+      name: 'Administrador',
+      isSystem: true,
+    },
+  });
+
+  const employeeRole = await prisma.role.upsert({
+    where: {
+      organizationId_code: {
+        organizationId: organization.id,
+        code: 'EMPLOYEE',
+      },
+    },
+    create: {
+      organizationId: organization.id,
+      code: 'EMPLOYEE',
+      name: 'Funcionário',
+      description: 'Acesso operacional aos próprios recursos.',
+      isSystem: true,
+    },
+    update: {
+      name: 'Funcionário',
+      isSystem: true,
+    },
+  });
+
+  await prisma.rolePermission.createMany({
+    data: permissions.map((permission) => ({
+      roleId: adminRole.id,
+      permissionId: permission.id,
+    })),
+    skipDuplicates: true,
+  });
+
+  const employeePermissionCodes = new Set(['profile.read', 'profile.update']);
+  await prisma.rolePermission.createMany({
+    data: permissions
+      .filter((permission) => employeePermissionCodes.has(permission.code))
+      .map((permission) => ({
+        roleId: employeeRole.id,
+        permissionId: permission.id,
+      })),
+    skipDuplicates: true,
+  });
+
+  const adminUser = await prisma.user.upsert({
+    where: {
+      organizationId_emailNormalized: {
+        organizationId: organization.id,
+        emailNormalized: adminEmail,
+      },
+    },
+    create: {
+      organizationId: organization.id,
+      email: adminEmail,
+      emailNormalized: adminEmail,
+      displayName: adminName,
+      status: 'INVITED',
+    },
+    update: {
+      email: adminEmail,
+      displayName: adminName,
+    },
+  });
+
+  await prisma.employee.upsert({
+    where: {
+      organizationId_userId: {
+        organizationId: organization.id,
+        userId: adminUser.id,
+      },
+    },
+    create: {
+      organizationId: organization.id,
+      teamId: team.id,
+      userId: adminUser.id,
+      employeeCode: adminEmployeeCode,
+      status: 'ACTIVE',
+    },
+    update: {
+      teamId: team.id,
+      employeeCode: adminEmployeeCode,
+      status: 'ACTIVE',
+    },
+  });
+
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId: {
+        userId: adminUser.id,
+        roleId: adminRole.id,
+      },
+    },
+    create: {
+      organizationId: organization.id,
+      userId: adminUser.id,
+      roleId: adminRole.id,
+    },
+    update: {},
+  });
+
+  console.log(
+    JSON.stringify({
+      event: 'database.seed.completed',
+      organizationId: organization.id,
+      teamId: team.id,
+      adminUserId: adminUser.id,
+      adminStatus: adminUser.status,
+      note: 'A senha e a ativação do ADMIN serão configuradas na Etapa 2B.',
+    }),
+  );
+}
+
+try {
+  await seed();
+} finally {
+  await prisma.$disconnect();
+}

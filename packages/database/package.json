@@ -1,0 +1,45 @@
+{
+  "name": "@crm/database",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "pnpm db:generate && tsc -p tsconfig.json",
+    "lint": "eslint src prisma --ext .ts",
+    "typecheck": "pnpm db:generate && tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.prisma.json",
+    "test": "vitest run --config ../../tooling/testing/vitest.config.ts --passWithNoTests",
+    "clean": "rimraf dist coverage src/generated/prisma",
+    "db:format": "prisma format",
+    "db:generate": "prisma generate",
+    "db:validate": "prisma validate",
+    "db:migrate:create": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:status": "prisma migrate status",
+    "db:seed": "prisma db seed",
+    "db:verify-seed": "tsx prisma/verify-seed.ts",
+    "db:studio": "prisma studio",
+    "db:health": "tsx prisma/healthcheck.ts"
+  },
+  "dependencies": {
+    "@crm/config": "workspace:*",
+    "@prisma/adapter-pg": "7.9.1",
+    "@prisma/client": "7.9.1",
+    "dotenv": "17.4.2",
+    "pg": "8.22.0"
+  },
+  "devDependencies": {
+    "@types/pg": "8.20.0",
+    "prisma": "7.9.1"
+  }
+}

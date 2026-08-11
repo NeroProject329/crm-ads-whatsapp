@@ -1,0 +1,270 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+  engineType   = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum TeamStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+}
+
+enum SessionStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum AuditActorType {
+  USER
+  SYSTEM
+}
+
+enum AuditOutcome {
+  SUCCESS
+  DENIED
+  FAILURE
+}
+
+model Organization {
+  id        String             @id @default(uuid()) @db.Uuid
+  name      String             @db.VarChar(160)
+  slug      String             @unique @db.VarChar(80)
+  status    OrganizationStatus @default(ACTIVE)
+  timezone  String             @default("America/Sao_Paulo") @db.VarChar(64)
+  createdAt DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime           @updatedAt @db.Timestamptz(3)
+
+  teams     Team[]
+  users     User[]
+  employees Employee[]
+  roles     Role[]
+  sessions  Session[]
+  userRoles UserRole[]
+  auditLogs AuditLog[]
+
+  @@index([status])
+  @@map("organizations")
+}
+
+model Team {
+  id             String     @id @default(uuid()) @db.Uuid
+  organizationId String     @db.Uuid
+  name           String     @db.VarChar(120)
+  slug           String     @db.VarChar(80)
+  description    String?    @db.VarChar(500)
+  status         TeamStatus @default(ACTIVE)
+  createdAt      DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime   @updatedAt @db.Timestamptz(3)
+  deletedAt      DateTime?  @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employees    Employee[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, slug])
+  @@index([organizationId, status])
+  @@map("teams")
+}
+
+model User {
+  id                  String     @id @default(uuid()) @db.Uuid
+  organizationId      String     @db.Uuid
+  email               String     @db.VarChar(254)
+  emailNormalized     String     @db.VarChar(254)
+  displayName         String     @db.VarChar(160)
+  passwordHash        String?    @db.VarChar(255)
+  status              UserStatus @default(INVITED)
+  passwordChangedAt   DateTime?  @db.Timestamptz(3)
+  lastLoginAt         DateTime?  @db.Timestamptz(3)
+  failedLoginAttempts Int        @default(0)
+  lockedUntil         DateTime?  @db.Timestamptz(3)
+  createdAt           DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime   @updatedAt @db.Timestamptz(3)
+  deletedAt           DateTime?  @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee     Employee?
+  userRoles    UserRole[]
+  sessions     Session[]
+  auditLogs    AuditLog[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, emailNormalized])
+  @@index([organizationId, status])
+  @@index([emailNormalized])
+  @@map("users")
+}
+
+model Employee {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @db.Uuid
+  teamId         String         @db.Uuid
+  userId         String         @db.Uuid
+  employeeCode   String         @db.VarChar(40)
+  status         EmployeeStatus @default(ACTIVE)
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @db.Timestamptz(3)
+  deletedAt      DateTime?      @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  team         Team         @relation(fields: [organizationId, teamId], references: [organizationId, id], onDelete: Restrict)
+  user         User         @relation(fields: [organizationId, userId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, userId])
+  @@unique([organizationId, employeeCode])
+  @@index([organizationId, teamId, status])
+  @@map("employees")
+}
+
+model Role {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  code           String   @db.VarChar(80)
+  name           String   @db.VarChar(120)
+  description    String?  @db.VarChar(500)
+  isSystem       Boolean  @default(false)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, code])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique @db.VarChar(120)
+  description String?  @db.VarChar(500)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String   @db.Uuid
+  permissionId String   @db.Uuid
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  organizationId String   @db.Uuid
+  userId         String   @db.Uuid
+  roleId         String   @db.Uuid
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [organizationId, userId], references: [organizationId, id], onDelete: Cascade)
+  role         Role         @relation(fields: [organizationId, roleId], references: [organizationId, id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([organizationId, roleId])
+  @@map("user_roles")
+}
+
+model Session {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @db.Uuid
+  userId         String        @db.Uuid
+  status         SessionStatus @default(ACTIVE)
+  expiresAt      DateTime      @db.Timestamptz(3)
+  lastSeenAt     DateTime      @default(now()) @db.Timestamptz(3)
+  revokedAt      DateTime?     @db.Timestamptz(3)
+  revokeReason   String?       @db.VarChar(240)
+  ipHash         String?       @db.VarChar(128)
+  userAgent      String?       @db.VarChar(500)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @db.Timestamptz(3)
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [organizationId, userId], references: [organizationId, id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, userId, status])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model RefreshToken {
+  id            String    @id @default(uuid()) @db.Uuid
+  sessionId     String    @db.Uuid
+  tokenHash     String    @unique @db.VarChar(128)
+  familyId      String    @db.Uuid
+  parentTokenId String?   @db.Uuid
+  expiresAt     DateTime  @db.Timestamptz(3)
+  consumedAt    DateTime? @db.Timestamptz(3)
+  revokedAt     DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+
+  session     Session        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  parentToken RefreshToken?  @relation("RefreshTokenRotation", fields: [parentTokenId], references: [id], onDelete: SetNull)
+  childTokens RefreshToken[] @relation("RefreshTokenRotation")
+
+  @@index([sessionId, expiresAt])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model AuditLog {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @db.Uuid
+  actorType      AuditActorType
+  actorUserId    String?        @db.Uuid
+  action         String         @db.VarChar(160)
+  resourceType   String         @db.VarChar(120)
+  resourceId     String?        @db.VarChar(120)
+  outcome        AuditOutcome
+  correlationId  String?        @db.VarChar(120)
+  ipHash         String?        @db.VarChar(128)
+  userAgent      String?        @db.VarChar(500)
+  metadata       Json?
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  actorUser    User?        @relation(fields: [organizationId, actorUserId], references: [organizationId, id], onDelete: Restrict)
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, actorUserId, createdAt])
+  @@index([organizationId, resourceType, resourceId])
+  @@index([correlationId])
+  @@map("audit_logs")
+}

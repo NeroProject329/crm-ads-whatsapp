@@ -1,0 +1,20 @@
+{
+  "name": "@crm/validation",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --config ../../tooling/testing/vitest.config.ts --passWithNoTests",
+    "clean": "rimraf dist coverage"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  }
+}
