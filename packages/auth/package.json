@@ -1,9 +1,10 @@
 {
   "name": "@crm/auth",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
+  "type": "module",
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "./src/index.ts",
   "files": [
     "dist"
   ],
@@ -13,5 +14,14 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --config ../../tooling/testing/vitest.config.ts --passWithNoTests",
     "clean": "rimraf dist coverage"
+  },
+  "dependencies": {
+    "jose": "6.2.3"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
   }
 }

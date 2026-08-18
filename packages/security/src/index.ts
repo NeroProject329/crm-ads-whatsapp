@@ -1,3 +1,5 @@
+export { createOpaqueToken, hashOpaqueToken, hashPassword, verifyPassword } from './password.js';
+
 export function maskPhoneNumber(value: string): string {
   const digits = value.replace(/\D/g, '');
 

@@ -1,3 +1,4 @@
+export { authEnvironmentSchema, parseAuthEnvironment, type AuthEnvironment } from './auth.js';
 export {
   databaseEnvironmentSchema,
   parseDatabaseEnvironment,
