@@ -30,7 +30,7 @@ export type AuthUserResponse = Readonly<{
   userId: string;
 }>;
 
-export type AuthLoginResponse = Readonly<{
+export type AuthTokenResponse = Readonly<{
   accessToken: string;
   accessTokenExpiresInSeconds: number;
   refreshToken: string;
@@ -38,4 +38,20 @@ export type AuthLoginResponse = Readonly<{
   sessionId: string;
   tokenType: 'Bearer';
   user: AuthUserResponse;
+}>;
+
+export type AuthLoginResponse = AuthTokenResponse;
+
+export type AuthRefreshRequest = Readonly<{
+  refreshToken: string;
+}>;
+
+export type AuthRefreshResponse = AuthTokenResponse;
+
+export type AuthLogoutRequest = Readonly<{
+  refreshToken: string;
+}>;
+
+export type AuthLogoutResponse = Readonly<{
+  success: true;
 }>;
