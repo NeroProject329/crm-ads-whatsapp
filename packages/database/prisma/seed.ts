@@ -1,4 +1,4 @@
-import { config } from 'dotenv';
+﻿import { config } from 'dotenv';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -28,26 +28,30 @@ const adminName = process.env.SEED_ADMIN_NAME?.trim() || 'Administrador';
 const adminEmployeeCode = process.env.SEED_ADMIN_EMPLOYEE_CODE?.trim() || 'ADMIN001';
 
 const permissionDefinitions = [
-  ['organization.read', 'Visualizar a organização'],
-  ['organization.manage', 'Gerenciar a organização'],
+  ['organization.read', 'Visualizar a organizaÃ§Ã£o'],
+  ['organization.manage', 'Gerenciar a organizaÃ§Ã£o'],
   ['team.read', 'Visualizar equipes'],
   ['team.manage', 'Gerenciar equipes'],
-  ['user.read', 'Visualizar usuários'],
-  ['user.manage', 'Gerenciar usuários'],
-  ['employee.read', 'Visualizar funcionários'],
-  ['employee.manage', 'Gerenciar funcionários'],
+  ['user.read', 'Visualizar usuÃ¡rios'],
+  ['user.manage', 'Gerenciar usuÃ¡rios'],
+  ['employee.read', 'Visualizar funcionÃ¡rios'],
+  ['employee.manage', 'Gerenciar funcionÃ¡rios'],
   ['audit.read', 'Visualizar auditoria'],
-  ['profile.read', 'Visualizar o próprio perfil'],
-  ['profile.update', 'Atualizar o próprio perfil'],
+  ['profile.read', 'Visualizar o prÃ³prio perfil'],
+  ['profile.update', 'Atualizar o prÃ³prio perfil'],
 
   ['site.read', 'Visualizar sites autorizados'],
   ['site.manage', 'Gerenciar sites'],
-  ['domain.read', 'Visualizar domínios autorizados'],
-  ['domain.manage', 'Gerenciar domínios'],
-  ['whatsapp_number.read', 'Visualizar números WhatsApp autorizados'],
-  ['whatsapp_number.manage', 'Gerenciar números WhatsApp'],
+  ['domain.read', 'Visualizar domÃ­nios autorizados'],
+  ['domain.manage', 'Gerenciar domÃ­nios'],
+  ['whatsapp_number.read', 'Visualizar nÃºmeros WhatsApp autorizados'],
+  ['whatsapp_number.manage', 'Gerenciar nÃºmeros WhatsApp'],
   ['traffic_pool.read', 'Visualizar Traffic Pools autorizados'],
   ['traffic_pool.manage', 'Gerenciar Traffic Pools'],
+  ['ads_request.read', 'Visualizar pedidos de ADS autorizados'],
+  ['ads_request.manage', 'Criar e gerenciar pedidos de ADS autorizados'],
+  ['ads_queue.read', 'Visualizar fila de ADS autorizada'],
+  ['ads_queue.manage', 'Gerenciar fila de ADS'],
 ] as const;
 
 async function seed(): Promise<void> {
@@ -126,7 +130,7 @@ async function seed(): Promise<void> {
 
       name: 'Administrador',
 
-      description: 'Acesso administrativo integral à organização.',
+      description: 'Acesso administrativo integral Ã  organizaÃ§Ã£o.',
 
       isSystem: true,
     },
@@ -134,7 +138,7 @@ async function seed(): Promise<void> {
     update: {
       name: 'Administrador',
 
-      description: 'Acesso administrativo integral à organização.',
+      description: 'Acesso administrativo integral Ã  organizaÃ§Ã£o.',
 
       isSystem: true,
     },
@@ -154,17 +158,17 @@ async function seed(): Promise<void> {
 
       code: 'EMPLOYEE',
 
-      name: 'Funcionário',
+      name: 'FuncionÃ¡rio',
 
-      description: 'Acesso operacional aos próprios recursos.',
+      description: 'Acesso operacional aos prÃ³prios recursos.',
 
       isSystem: true,
     },
 
     update: {
-      name: 'Funcionário',
+      name: 'FuncionÃ¡rio',
 
-      description: 'Acesso operacional aos próprios recursos.',
+      description: 'Acesso operacional aos prÃ³prios recursos.',
 
       isSystem: true,
     },
@@ -187,6 +191,9 @@ async function seed(): Promise<void> {
     'domain.read',
     'whatsapp_number.read',
     'traffic_pool.read',
+    'ads_request.read',
+    'ads_request.manage',
+    'ads_queue.read',
   ]);
 
   await prisma.rolePermission.createMany({

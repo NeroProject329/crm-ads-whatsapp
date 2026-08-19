@@ -168,7 +168,11 @@ export class AccessTokenGuard implements CanActivate {
       value === 'whatsapp_number.read' ||
       value === 'whatsapp_number.manage' ||
       value === 'traffic_pool.read' ||
-      value === 'traffic_pool.manage'
+      value === 'traffic_pool.manage' ||
+      value === 'ads_request.read' ||
+      value === 'ads_request.manage' ||
+      value === 'ads_queue.read' ||
+      value === 'ads_queue.manage'
     );
   }
 

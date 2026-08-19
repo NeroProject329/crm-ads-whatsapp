@@ -1,4 +1,4 @@
-import { config } from 'dotenv';
+﻿import { config } from 'dotenv';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -14,6 +14,10 @@ const { createDatabaseClient } = await import('../src/index.js');
 const prisma = createDatabaseClient();
 
 const expectedPermissionCodes = [
+  'ads_queue.manage',
+  'ads_queue.read',
+  'ads_request.manage',
+  'ads_request.read',
   'audit.read',
   'domain.manage',
   'domain.read',
@@ -36,6 +40,9 @@ const expectedPermissionCodes = [
 ] as const;
 
 const expectedEmployeePermissionCodes = [
+  'ads_queue.read',
+  'ads_request.manage',
+  'ads_request.read',
   'domain.read',
   'profile.read',
   'profile.update',
@@ -195,17 +202,17 @@ async function verifySeed(): Promise<void> {
 
   assert(
     JSON.stringify(permissionCodes) === JSON.stringify(expectedPermissionCodes),
-    'Permission catalog does not match the Stage 3 seed.',
+    'Permission catalog does not match the Stage 4 seed.',
   );
 
   assert(
     JSON.stringify(adminPermissionCodes) === JSON.stringify(expectedPermissionCodes),
-    'ADMIN must receive every Stage 3 permission.',
+    'ADMIN must receive every Stage 4 permission.',
   );
 
   assert(
     JSON.stringify(employeePermissionCodes) === JSON.stringify(expectedEmployeePermissionCodes),
-    'EMPLOYEE permissions do not match Stage 3.',
+    'EMPLOYEE permissions do not match Stage 4.',
   );
 
   console.log(

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+﻿import { Module } from '@nestjs/common';
 
 import { AuthModule } from './auth/auth.module.js';
 
@@ -12,9 +12,18 @@ import { WhatsAppNumbersModule } from './whatsapp-numbers/whatsapp-numbers.modul
 
 import { TrafficPoolsModule } from './traffic-pools/traffic-pools.module.js';
 
+import { AdsModule } from './ads/ads.module.js';
+
 @Module({
   controllers: [HealthController],
 
-  imports: [AuthModule, DatabaseModule, SitesModule, WhatsAppNumbersModule, TrafficPoolsModule],
+  imports: [
+    AuthModule,
+    DatabaseModule,
+    SitesModule,
+    WhatsAppNumbersModule,
+    TrafficPoolsModule,
+    AdsModule,
+  ],
 })
 export class AppModule {}

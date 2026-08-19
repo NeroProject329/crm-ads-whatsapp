@@ -1,4 +1,4 @@
-export type HealthStatus = 'ok' | 'degraded' | 'error';
+﻿export type HealthStatus = 'ok' | 'degraded' | 'error';
 
 export type HealthPayload = Readonly<{
   service: string;
@@ -188,3 +188,5 @@ export type UpdateWhatsAppNumberRequest = Readonly<{
 }>;
 
 export * from './traffic-pool.js';
+
+export * from './ads.js';

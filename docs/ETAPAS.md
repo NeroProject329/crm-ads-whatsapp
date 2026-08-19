@@ -44,3 +44,13 @@ Ao final da Etapa 13, os documentos produzidos serão consolidados em um único 
 ```text
 docs/DOCUMENTO_MESTRE_IMPLEMENTACAO_V1.md
 ```
+
+## Etapa 4 - ADS Requests + Queue
+
+Status: CONCLUIDA.
+
+Implementado: AdsRequest, AdsQueueItem, fila persistente PostgreSQL, criacao e cancelamento transacionais, eligibility, isolamento ADMIN/EMPLOYEE, 23 permissions, EMPLOYEE com 9 permissions, runtime smoke, tenant audit e CI global.
+
+Documentacao: docs/ETAPA_4_ADS_REQUESTS_QUEUE.md e docs/DECISOES_ETAPA_4.md.
+
+Proxima: Etapa 5 - Scheduler, microlotes, round-robin e backpressure.

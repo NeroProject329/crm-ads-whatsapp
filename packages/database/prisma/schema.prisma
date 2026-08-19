@@ -80,6 +80,23 @@ enum TrafficPoolMemberStatus {
   PAUSED
 }
 
+enum AdsRequestStatus {
+  QUEUED
+  PROCESSING
+  PARTIALLY_FULFILLED
+  FULFILLED
+  CANCELLED
+  FAILED
+}
+
+enum AdsQueueItemStatus {
+  WAITING
+  CLAIMED
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
 model Organization {
   id        String             @id @default(uuid()) @db.Uuid
   name      String             @db.VarChar(160)
@@ -101,6 +118,8 @@ model Organization {
   whatsAppNumbers    WhatsAppNumber[]
   trafficPools       TrafficPool[]
   trafficPoolMembers TrafficPoolMember[]
+  adsRequests        AdsRequest[]
+  adsQueueItems      AdsQueueItem[]
 
   @@index([status])
   @@map("organizations")
@@ -142,11 +161,12 @@ model User {
   updatedAt           DateTime   @updatedAt @db.Timestamptz(3)
   deletedAt           DateTime?  @db.Timestamptz(3)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  employee     Employee?
-  userRoles    UserRole[]
-  sessions     Session[]
-  auditLogs    AuditLog[]
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee             Employee?
+  userRoles            UserRole[]
+  sessions             Session[]
+  auditLogs            AuditLog[]
+  requestedAdsRequests AdsRequest[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, emailNormalized])
@@ -171,6 +191,8 @@ model Employee {
   user            User             @relation(fields: [organizationId, userId], references: [organizationId, id], onDelete: Restrict)
   sites           Site[]
   whatsAppNumbers WhatsAppNumber[]
+  adsRequests     AdsRequest[]
+  adsQueueItems   AdsQueueItem[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, userId])
@@ -298,6 +320,7 @@ model Site {
   ownerEmployee Employee      @relation(fields: [organizationId, ownerEmployeeId], references: [organizationId, id], onDelete: Restrict)
   domains       SiteDomain[]
   trafficPools  TrafficPool[]
+  adsRequests   AdsRequest[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, slug])
@@ -340,6 +363,8 @@ model WhatsAppNumber {
   organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   assignedEmployee   Employee?           @relation(fields: [organizationId, assignedEmployeeId], references: [organizationId, id], onDelete: Restrict)
   trafficPoolMembers TrafficPoolMember[]
+  adsRequests        AdsRequest[]
+  adsQueueItems      AdsQueueItem[]
 
   @@unique([organizationId, id])
   @@index([organizationId, assignedEmployeeId, status])
@@ -359,9 +384,11 @@ model TrafficPool {
   updatedAt      DateTime          @updatedAt @db.Timestamptz(3)
   deletedAt      DateTime?         @db.Timestamptz(3)
 
-  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  site         Site                @relation(fields: [organizationId, siteId], references: [organizationId, id], onDelete: Restrict)
-  members      TrafficPoolMember[]
+  organization  Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  site          Site                @relation(fields: [organizationId, siteId], references: [organizationId, id], onDelete: Restrict)
+  members       TrafficPoolMember[]
+  adsRequests   AdsRequest[]
+  adsQueueItems AdsQueueItem[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, slug])
@@ -388,6 +415,82 @@ model TrafficPoolMember {
   @@index([organizationId, whatsAppNumberId, status])
   @@index([organizationId, trafficPoolId, status])
   @@map("traffic_pool_members")
+}
+
+model AdsRequest {
+  id                 String           @id @default(uuid()) @db.Uuid
+  organizationId     String           @db.Uuid
+  employeeId         String           @db.Uuid
+  siteId             String           @db.Uuid
+  trafficPoolId      String           @db.Uuid
+  requestedByUserId  String           @db.Uuid
+  requestedLeadCount Int
+  fulfilledLeadCount Int              @default(0)
+  status             AdsRequestStatus @default(QUEUED)
+  notes              String?          @db.VarChar(500)
+  queuedAt           DateTime         @default(now()) @db.Timestamptz(3)
+  startedAt          DateTime?        @db.Timestamptz(3)
+  completedAt        DateTime?        @db.Timestamptz(3)
+  cancelledAt        DateTime?        @db.Timestamptz(3)
+  failureReason      String?          @db.VarChar(500)
+  createdAt          DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime         @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  employee Employee @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict)
+
+  site Site @relation(fields: [organizationId, siteId], references: [organizationId, id], onDelete: Restrict)
+
+  trafficPool TrafficPool @relation(fields: [organizationId, trafficPoolId], references: [organizationId, id], onDelete: Restrict)
+
+  requestedBy User @relation(fields: [organizationId, requestedByUserId], references: [organizationId, id], onDelete: Restrict)
+
+  queueItem        AdsQueueItem?
+  whatsAppNumber   WhatsAppNumber? @relation(fields: [whatsAppNumberId], references: [id])
+  whatsAppNumberId String?         @db.Uuid
+
+  @@unique([organizationId, id])
+  @@index([organizationId, employeeId, status])
+  @@index([organizationId, siteId, status])
+  @@index([organizationId, trafficPoolId, status])
+  @@index([organizationId, status, queuedAt])
+  @@map("ads_requests")
+}
+
+model AdsQueueItem {
+  id             String             @id @default(uuid()) @db.Uuid
+  organizationId String             @db.Uuid
+  adsRequestId   String             @db.Uuid
+  employeeId     String             @db.Uuid
+  trafficPoolId  String             @db.Uuid
+  status         AdsQueueItemStatus @default(WAITING)
+  priority       Int                @default(100)
+  enqueuedAt     DateTime           @default(now()) @db.Timestamptz(3)
+  availableAt    DateTime           @default(now()) @db.Timestamptz(3)
+  claimedAt      DateTime?          @db.Timestamptz(3)
+  completedAt    DateTime?          @db.Timestamptz(3)
+  cancelledAt    DateTime?          @db.Timestamptz(3)
+  attempts       Int                @default(0)
+  createdAt      DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime           @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  adsRequest AdsRequest @relation(fields: [organizationId, adsRequestId], references: [organizationId, id], onDelete: Cascade)
+
+  employee Employee @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict)
+
+  trafficPool      TrafficPool     @relation(fields: [organizationId, trafficPoolId], references: [organizationId, id], onDelete: Restrict)
+  whatsAppNumber   WhatsAppNumber? @relation(fields: [whatsAppNumberId], references: [id])
+  whatsAppNumberId String?         @db.Uuid
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, adsRequestId])
+  @@index([organizationId, status, priority, availableAt, enqueuedAt])
+  @@index([organizationId, employeeId, status])
+  @@index([organizationId, trafficPoolId, status])
+  @@map("ads_queue_items")
 }
 
 model AuditLog {

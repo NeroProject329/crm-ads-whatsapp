@@ -1,4 +1,4 @@
-import { z } from 'zod';
+﻿import { z } from 'zod';
 
 export const nonEmptyIdSchema = z.string().trim().min(1);
 
@@ -66,14 +66,14 @@ export function normalizeWhatsAppPhone(value: string): string {
   }
 
   /*
-   * 1. Número internacional explícito
+   * 1. NÃºmero internacional explÃ­cito
    * com "+" tem prioridade absoluta.
    *
    * +14155552671
-   * → +14155552671
+   * â†’ +14155552671
    *
    * +55 11 97394-6730
-   * → +5511973946730
+   * â†’ +5511973946730
    */
   if (
     original.startsWith('+') &&
@@ -88,10 +88,10 @@ export function normalizeWhatsAppPhone(value: string): string {
    * 2. Prefixo internacional "00".
    *
    * 005511973946730
-   * → +5511973946730
+   * â†’ +5511973946730
    *
    * 0014155552671
-   * → +14155552671
+   * â†’ +14155552671
    */
   if (compact.startsWith('00')) {
     digits = digits.slice(2);
@@ -104,11 +104,11 @@ export function normalizeWhatsAppPhone(value: string): string {
   }
 
   /*
-   * 3. Brasil já com código 55,
+   * 3. Brasil jÃ¡ com cÃ³digo 55,
    * mas sem "+".
    *
    * 5511973946730
-   * → +5511973946730
+   * â†’ +5511973946730
    */
   if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
     return `+${digits}`;
@@ -118,21 +118,21 @@ export function normalizeWhatsAppPhone(value: string): string {
    * 4. Prefixo nacional "0".
    *
    * 011973946730
-   * → 11973946730
+   * â†’ 11973946730
    */
   if (digits.startsWith('0') && (digits.length === 11 || digits.length === 12)) {
     digits = digits.slice(1);
   }
 
   /*
-   * 5. Número brasileiro sem
-   * código do país.
+   * 5. NÃºmero brasileiro sem
+   * cÃ³digo do paÃ­s.
    *
    * 11973946730
-   * → +5511973946730
+   * â†’ +5511973946730
    *
    * 1132345678
-   * → +551132345678
+   * â†’ +551132345678
    */
   if ((digits.length === 10 || digits.length === 11) && /^[1-9]\d+$/.test(digits)) {
     return `+55${digits}`;
@@ -242,3 +242,5 @@ export type CreateWhatsAppNumberInput = z.infer<typeof createWhatsAppNumberSchem
 export type UpdateWhatsAppNumberInput = z.infer<typeof updateWhatsAppNumberSchema>;
 
 export * from './traffic-pool.js';
+
+export * from './ads.js';
