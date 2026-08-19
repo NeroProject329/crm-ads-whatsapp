@@ -15,16 +15,33 @@ const prisma = createDatabaseClient();
 
 const expectedPermissionCodes = [
   'audit.read',
+  'domain.manage',
+  'domain.read',
   'employee.manage',
   'employee.read',
   'organization.manage',
   'organization.read',
   'profile.read',
   'profile.update',
+  'site.manage',
+  'site.read',
   'team.manage',
   'team.read',
+  'traffic_pool.manage',
+  'traffic_pool.read',
   'user.manage',
   'user.read',
+  'whatsapp_number.manage',
+  'whatsapp_number.read',
+] as const;
+
+const expectedEmployeePermissionCodes = [
+  'domain.read',
+  'profile.read',
+  'profile.update',
+  'site.read',
+  'traffic_pool.read',
+  'whatsapp_number.read',
 ] as const;
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -80,6 +97,7 @@ async function verifySeed(): Promise<void> {
           employee: {
             select: {
               employeeCode: true,
+
               status: true,
             },
           },
@@ -134,14 +152,11 @@ async function verifySeed(): Promise<void> {
 
   assert(adminUser, 'ADMIN user was not found.');
 
-  assert(adminUser.status === 'ACTIVE', 'ADMIN must be ACTIVE after Stage 2B.');
+  assert(adminUser.status === 'ACTIVE', 'ADMIN must be ACTIVE.');
 
-  assert(Boolean(adminUser.passwordHash), 'ADMIN password hash must exist after Stage 2B.');
+  assert(Boolean(adminUser.passwordHash), 'ADMIN password hash must exist.');
 
-  assert(
-    Boolean(adminUser.passwordChangedAt),
-    'ADMIN passwordChangedAt must exist after Stage 2B.',
-  );
+  assert(Boolean(adminUser.passwordChangedAt), 'ADMIN passwordChangedAt must exist.');
 
   assert(adminUser.employee?.status === 'ACTIVE', 'ADMIN employee record must be ACTIVE.');
 
@@ -180,17 +195,17 @@ async function verifySeed(): Promise<void> {
 
   assert(
     JSON.stringify(permissionCodes) === JSON.stringify(expectedPermissionCodes),
-    'Permission catalog does not match the Stage 2 seed.',
+    'Permission catalog does not match the Stage 3 seed.',
   );
 
   assert(
     JSON.stringify(adminPermissionCodes) === JSON.stringify(expectedPermissionCodes),
-    'ADMIN must receive every Stage 2 permission.',
+    'ADMIN must receive every Stage 3 permission.',
   );
 
   assert(
-    JSON.stringify(employeePermissionCodes) === JSON.stringify(['profile.read', 'profile.update']),
-    'EMPLOYEE permissions do not match the Stage 2 seed.',
+    JSON.stringify(employeePermissionCodes) === JSON.stringify(expectedEmployeePermissionCodes),
+    'EMPLOYEE permissions do not match Stage 3.',
   );
 
   console.log(
@@ -220,22 +235,16 @@ async function verifySeed(): Promise<void> {
 
         passwordConfigured: Boolean(adminUser.passwordHash),
 
-        passwordChangedAt: adminUser.passwordChangedAt,
-
         employee: adminUser.employee,
 
         roles: adminUser.userRoles.map(({ role }) => role.code).sort(),
       },
 
-      roles: organization.roles.map((role) => ({
-        code: role.code,
-
-        name: role.name,
-
-        permissionCount: role.rolePermissions.length,
-      })),
-
       permissionCount: permissionCodes.length,
+
+      adminPermissionCount: adminPermissionCodes.length,
+
+      employeePermissionCount: employeePermissionCodes.length,
     }),
   );
 }

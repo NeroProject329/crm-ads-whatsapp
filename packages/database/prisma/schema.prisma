@@ -50,6 +50,36 @@ enum AuditOutcome {
   FAILURE
 }
 
+enum SiteStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum SiteDomainStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum WhatsAppNumberStatus {
+  ACTIVE
+  PAUSED
+  DISABLED
+  ARCHIVED
+}
+
+enum TrafficPoolStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum TrafficPoolMemberStatus {
+  ACTIVE
+  PAUSED
+}
+
 model Organization {
   id        String             @id @default(uuid()) @db.Uuid
   name      String             @db.VarChar(160)
@@ -59,13 +89,18 @@ model Organization {
   createdAt DateTime           @default(now()) @db.Timestamptz(3)
   updatedAt DateTime           @updatedAt @db.Timestamptz(3)
 
-  teams     Team[]
-  users     User[]
-  employees Employee[]
-  roles     Role[]
-  sessions  Session[]
-  userRoles UserRole[]
-  auditLogs AuditLog[]
+  teams              Team[]
+  users              User[]
+  employees          Employee[]
+  roles              Role[]
+  sessions           Session[]
+  userRoles          UserRole[]
+  auditLogs          AuditLog[]
+  sites              Site[]
+  siteDomains        SiteDomain[]
+  whatsAppNumbers    WhatsAppNumber[]
+  trafficPools       TrafficPool[]
+  trafficPoolMembers TrafficPoolMember[]
 
   @@index([status])
   @@map("organizations")
@@ -131,10 +166,13 @@ model Employee {
   updatedAt      DateTime       @updatedAt @db.Timestamptz(3)
   deletedAt      DateTime?      @db.Timestamptz(3)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  team         Team         @relation(fields: [organizationId, teamId], references: [organizationId, id], onDelete: Restrict)
-  user         User         @relation(fields: [organizationId, userId], references: [organizationId, id], onDelete: Restrict)
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  team            Team             @relation(fields: [organizationId, teamId], references: [organizationId, id], onDelete: Restrict)
+  user            User             @relation(fields: [organizationId, userId], references: [organizationId, id], onDelete: Restrict)
+  sites           Site[]
+  whatsAppNumbers WhatsAppNumber[]
 
+  @@unique([organizationId, id])
   @@unique([organizationId, userId])
   @@unique([organizationId, employeeCode])
   @@index([organizationId, teamId, status])
@@ -242,6 +280,114 @@ model RefreshToken {
   @@index([sessionId, expiresAt])
   @@index([familyId])
   @@map("refresh_tokens")
+}
+
+model Site {
+  id              String     @id @default(uuid()) @db.Uuid
+  organizationId  String     @db.Uuid
+  ownerEmployeeId String     @db.Uuid
+  name            String     @db.VarChar(160)
+  slug            String     @db.VarChar(100)
+  description     String?    @db.VarChar(500)
+  status          SiteStatus @default(ACTIVE)
+  createdAt       DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime   @updatedAt @db.Timestamptz(3)
+  deletedAt       DateTime?  @db.Timestamptz(3)
+
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  ownerEmployee Employee      @relation(fields: [organizationId, ownerEmployeeId], references: [organizationId, id], onDelete: Restrict)
+  domains       SiteDomain[]
+  trafficPools  TrafficPool[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, slug])
+  @@index([organizationId, ownerEmployeeId, status])
+  @@map("sites")
+}
+
+model SiteDomain {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @db.Uuid
+  siteId         String           @db.Uuid
+  hostname       String           @unique @db.VarChar(253)
+  status         SiteDomainStatus @default(ACTIVE)
+  isPrimary      Boolean          @default(false)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime         @updatedAt @db.Timestamptz(3)
+  deletedAt      DateTime?        @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  site         Site         @relation(fields: [organizationId, siteId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, siteId, status])
+  @@index([organizationId, isPrimary])
+  @@map("site_domains")
+}
+
+model WhatsAppNumber {
+  id                 String               @id @default(uuid()) @db.Uuid
+  organizationId     String               @db.Uuid
+  assignedEmployeeId String?              @db.Uuid
+  displayName        String               @db.VarChar(120)
+  e164               String               @unique @db.VarChar(32)
+  status             WhatsAppNumberStatus @default(ACTIVE)
+  notes              String?              @db.VarChar(500)
+  createdAt          DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime             @updatedAt @db.Timestamptz(3)
+  deletedAt          DateTime?            @db.Timestamptz(3)
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  assignedEmployee   Employee?           @relation(fields: [organizationId, assignedEmployeeId], references: [organizationId, id], onDelete: Restrict)
+  trafficPoolMembers TrafficPoolMember[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, assignedEmployeeId, status])
+  @@index([organizationId, status])
+  @@map("whatsapp_numbers")
+}
+
+model TrafficPool {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @db.Uuid
+  siteId         String            @db.Uuid
+  name           String            @db.VarChar(160)
+  slug           String            @db.VarChar(100)
+  description    String?           @db.VarChar(500)
+  status         TrafficPoolStatus @default(ACTIVE)
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(3)
+  deletedAt      DateTime?         @db.Timestamptz(3)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  site         Site                @relation(fields: [organizationId, siteId], references: [organizationId, id], onDelete: Restrict)
+  members      TrafficPoolMember[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, slug])
+  @@index([organizationId, siteId, status])
+  @@map("traffic_pools")
+}
+
+model TrafficPoolMember {
+  id               String                  @id @default(uuid()) @db.Uuid
+  organizationId   String                  @db.Uuid
+  trafficPoolId    String                  @db.Uuid
+  whatsAppNumberId String                  @db.Uuid
+  position         Int
+  status           TrafficPoolMemberStatus @default(ACTIVE)
+  createdAt        DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime                @updatedAt @db.Timestamptz(3)
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  trafficPool    TrafficPool    @relation(fields: [organizationId, trafficPoolId], references: [organizationId, id], onDelete: Cascade)
+  whatsAppNumber WhatsAppNumber @relation(fields: [organizationId, whatsAppNumberId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([trafficPoolId, whatsAppNumberId])
+  @@unique([trafficPoolId, position])
+  @@index([organizationId, whatsAppNumberId, status])
+  @@index([organizationId, trafficPoolId, status])
+  @@map("traffic_pool_members")
 }
 
 model AuditLog {

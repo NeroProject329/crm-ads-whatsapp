@@ -160,13 +160,22 @@ export class AccessTokenGuard implements CanActivate {
       value === 'employee.manage' ||
       value === 'audit.read' ||
       value === 'profile.read' ||
-      value === 'profile.update'
+      value === 'profile.update' ||
+      value === 'site.read' ||
+      value === 'site.manage' ||
+      value === 'domain.read' ||
+      value === 'domain.manage' ||
+      value === 'whatsapp_number.read' ||
+      value === 'whatsapp_number.manage' ||
+      value === 'traffic_pool.read' ||
+      value === 'traffic_pool.manage'
     );
   }
 
   private unauthorized(): UnauthorizedException {
     return new UnauthorizedException({
       code: 'AUTH_ACCESS_DENIED',
+
       message: 'Authentication is required.',
     });
   }

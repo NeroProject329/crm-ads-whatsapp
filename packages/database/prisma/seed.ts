@@ -3,17 +3,28 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
-config({ path: resolve(scriptDirectory, '../../../.env'), quiet: true });
+
+config({
+  path: resolve(scriptDirectory, '../../../.env'),
+  quiet: true,
+});
 
 const { createDatabaseClient } = await import('../src/index.js');
+
 const prisma = createDatabaseClient();
 
 const organizationName = process.env.SEED_ORGANIZATION_NAME?.trim() || 'CRM ADS WhatsApp';
+
 const organizationSlug = process.env.SEED_ORGANIZATION_SLUG?.trim() || 'crm-ads-whatsapp';
+
 const teamName = process.env.SEED_TEAM_NAME?.trim() || 'Equipe Principal';
+
 const teamSlug = process.env.SEED_TEAM_SLUG?.trim() || 'equipe-principal';
+
 const adminEmail = (process.env.SEED_ADMIN_EMAIL?.trim() || 'admin@example.com').toLowerCase();
+
 const adminName = process.env.SEED_ADMIN_NAME?.trim() || 'Administrador';
+
 const adminEmployeeCode = process.env.SEED_ADMIN_EMPLOYEE_CODE?.trim() || 'ADMIN001';
 
 const permissionDefinitions = [
@@ -28,15 +39,28 @@ const permissionDefinitions = [
   ['audit.read', 'Visualizar auditoria'],
   ['profile.read', 'Visualizar o próprio perfil'],
   ['profile.update', 'Atualizar o próprio perfil'],
+
+  ['site.read', 'Visualizar sites autorizados'],
+  ['site.manage', 'Gerenciar sites'],
+  ['domain.read', 'Visualizar domínios autorizados'],
+  ['domain.manage', 'Gerenciar domínios'],
+  ['whatsapp_number.read', 'Visualizar números WhatsApp autorizados'],
+  ['whatsapp_number.manage', 'Gerenciar números WhatsApp'],
+  ['traffic_pool.read', 'Visualizar Traffic Pools autorizados'],
+  ['traffic_pool.manage', 'Gerenciar Traffic Pools'],
 ] as const;
 
 async function seed(): Promise<void> {
   const organization = await prisma.organization.upsert({
-    where: { slug: organizationSlug },
+    where: {
+      slug: organizationSlug,
+    },
+
     create: {
       name: organizationName,
       slug: organizationSlug,
     },
+
     update: {
       name: organizationName,
       status: 'ACTIVE',
@@ -47,16 +71,22 @@ async function seed(): Promise<void> {
     where: {
       organizationId_slug: {
         organizationId: organization.id,
+
         slug: teamSlug,
       },
     },
+
     create: {
       organizationId: organization.id,
+
       name: teamName,
+
       slug: teamSlug,
     },
+
     update: {
       name: teamName,
+
       status: 'ACTIVE',
     },
   });
@@ -64,9 +94,18 @@ async function seed(): Promise<void> {
   const permissions = await Promise.all(
     permissionDefinitions.map(([code, description]) =>
       prisma.permission.upsert({
-        where: { code },
-        create: { code, description },
-        update: { description },
+        where: {
+          code,
+        },
+
+        create: {
+          code,
+          description,
+        },
+
+        update: {
+          description,
+        },
       }),
     ),
   );
@@ -75,18 +114,28 @@ async function seed(): Promise<void> {
     where: {
       organizationId_code: {
         organizationId: organization.id,
+
         code: 'ADMIN',
       },
     },
+
     create: {
       organizationId: organization.id,
+
       code: 'ADMIN',
+
       name: 'Administrador',
+
       description: 'Acesso administrativo integral à organização.',
+
       isSystem: true,
     },
+
     update: {
       name: 'Administrador',
+
+      description: 'Acesso administrativo integral à organização.',
+
       isSystem: true,
     },
   });
@@ -95,18 +144,28 @@ async function seed(): Promise<void> {
     where: {
       organizationId_code: {
         organizationId: organization.id,
+
         code: 'EMPLOYEE',
       },
     },
+
     create: {
       organizationId: organization.id,
+
       code: 'EMPLOYEE',
+
       name: 'Funcionário',
+
       description: 'Acesso operacional aos próprios recursos.',
+
       isSystem: true,
     },
+
     update: {
       name: 'Funcionário',
+
+      description: 'Acesso operacional aos próprios recursos.',
+
       isSystem: true,
     },
   });
@@ -114,19 +173,31 @@ async function seed(): Promise<void> {
   await prisma.rolePermission.createMany({
     data: permissions.map((permission) => ({
       roleId: adminRole.id,
+
       permissionId: permission.id,
     })),
+
     skipDuplicates: true,
   });
 
-  const employeePermissionCodes = new Set(['profile.read', 'profile.update']);
+  const employeePermissionCodes = new Set([
+    'profile.read',
+    'profile.update',
+    'site.read',
+    'domain.read',
+    'whatsapp_number.read',
+    'traffic_pool.read',
+  ]);
+
   await prisma.rolePermission.createMany({
     data: permissions
       .filter((permission) => employeePermissionCodes.has(permission.code))
       .map((permission) => ({
         roleId: employeeRole.id,
+
         permissionId: permission.id,
       })),
+
     skipDuplicates: true,
   });
 
@@ -134,18 +205,26 @@ async function seed(): Promise<void> {
     where: {
       organizationId_emailNormalized: {
         organizationId: organization.id,
+
         emailNormalized: adminEmail,
       },
     },
+
     create: {
       organizationId: organization.id,
+
       email: adminEmail,
+
       emailNormalized: adminEmail,
+
       displayName: adminName,
+
       status: 'INVITED',
     },
+
     update: {
       email: adminEmail,
+
       displayName: adminName,
     },
   });
@@ -154,19 +233,28 @@ async function seed(): Promise<void> {
     where: {
       organizationId_userId: {
         organizationId: organization.id,
+
         userId: adminUser.id,
       },
     },
+
     create: {
       organizationId: organization.id,
+
       teamId: team.id,
+
       userId: adminUser.id,
+
       employeeCode: adminEmployeeCode,
+
       status: 'ACTIVE',
     },
+
     update: {
       teamId: team.id,
+
       employeeCode: adminEmployeeCode,
+
       status: 'ACTIVE',
     },
   });
@@ -175,25 +263,37 @@ async function seed(): Promise<void> {
     where: {
       userId_roleId: {
         userId: adminUser.id,
+
         roleId: adminRole.id,
       },
     },
+
     create: {
       organizationId: organization.id,
+
       userId: adminUser.id,
+
       roleId: adminRole.id,
     },
+
     update: {},
   });
 
   console.log(
     JSON.stringify({
       event: 'database.seed.completed',
+
       organizationId: organization.id,
+
       teamId: team.id,
+
       adminUserId: adminUser.id,
+
       adminStatus: adminUser.status,
-      note: 'A senha e a ativação do ADMIN serão configuradas na Etapa 2B.',
+
+      permissionCount: permissions.length,
+
+      employeePermissionCount: employeePermissionCodes.size,
     }),
   );
 }

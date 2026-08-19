@@ -97,7 +97,7 @@ try {
     },
   });
 
-  await prisma.employee.upsert({
+  const employee = await prisma.employee.upsert({
     where: {
       organizationId_userId: {
         organizationId: organization.id,
@@ -157,6 +157,7 @@ try {
       event: 'auth.employee.bootstrap.completed',
       organizationId: organization.id,
       userId: user.id,
+      employeeId: employee.id,
       employeeCode,
       role: 'EMPLOYEE',
       userStatus: 'ACTIVE',

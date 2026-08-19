@@ -11,11 +11,21 @@ export type PermissionCode =
   | 'employee.manage'
   | 'audit.read'
   | 'profile.read'
-  | 'profile.update';
+  | 'profile.update'
+  | 'site.read'
+  | 'site.manage'
+  | 'domain.read'
+  | 'domain.manage'
+  | 'whatsapp_number.read'
+  | 'whatsapp_number.manage'
+  | 'traffic_pool.read'
+  | 'traffic_pool.manage';
 
 export type AuthorizationContext = Readonly<{
   permissions: readonly PermissionCode[];
+
   principal: AuthenticatedPrincipal;
+
   roles: readonly Role[];
 }>;
 
