@@ -1,4 +1,4 @@
-﻿export type AdsRequestStatus =
+export type AdsRequestStatus =
   'QUEUED' | 'PROCESSING' | 'PARTIALLY_FULFILLED' | 'FULFILLED' | 'CANCELLED' | 'FAILED';
 
 export type AdsQueueItemStatus = 'WAITING' | 'CLAIMED' | 'COMPLETED' | 'CANCELLED' | 'FAILED';
@@ -28,6 +28,9 @@ export type AdsQueueItemSummaryResponse = Readonly<{
   enqueuedAt: string;
   availableAt: string;
   claimedAt: string | null;
+  claimedByWorkerId: string | null;
+  leaseExpiresAt: string | null;
+  lastAttemptAt: string | null;
   completedAt: string | null;
   cancelledAt: string | null;
 }>;
@@ -40,6 +43,7 @@ export type AdsRequestResponse = Readonly<{
   trafficPoolId: string;
   requestedByUserId: string;
   requestedLeadCount: number;
+  scheduledLeadCount: number;
   fulfilledLeadCount: number;
   status: AdsRequestStatus;
   notes: string | null;
@@ -69,6 +73,7 @@ export type AdsQueueRequestSummaryResponse = Readonly<{
   id: string;
   status: AdsRequestStatus;
   requestedLeadCount: number;
+  scheduledLeadCount: number;
   fulfilledLeadCount: number;
 }>;
 
@@ -84,6 +89,9 @@ export type AdsQueueItemResponse = Readonly<{
   enqueuedAt: string;
   availableAt: string;
   claimedAt: string | null;
+  claimedByWorkerId: string | null;
+  leaseExpiresAt: string | null;
+  lastAttemptAt: string | null;
   completedAt: string | null;
   cancelledAt: string | null;
   adsRequest: AdsQueueRequestSummaryResponse;

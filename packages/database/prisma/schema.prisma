@@ -97,6 +97,14 @@ enum AdsQueueItemStatus {
   FAILED
 }
 
+enum AdsMicrobatchStatus {
+  PLANNED
+  DELIVERING
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
 model Organization {
   id        String             @id @default(uuid()) @db.Uuid
   name      String             @db.VarChar(160)
@@ -120,6 +128,9 @@ model Organization {
   trafficPoolMembers TrafficPoolMember[]
   adsRequests        AdsRequest[]
   adsQueueItems      AdsQueueItem[]
+
+  trafficPoolSchedulerStates TrafficPoolSchedulerState[]
+  adsMicrobatches            AdsMicrobatch[]
 
   @@index([status])
   @@map("organizations")
@@ -193,6 +204,8 @@ model Employee {
   whatsAppNumbers WhatsAppNumber[]
   adsRequests     AdsRequest[]
   adsQueueItems   AdsQueueItem[]
+
+  adsMicrobatches AdsMicrobatch[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, userId])
@@ -366,6 +379,8 @@ model WhatsAppNumber {
   adsRequests        AdsRequest[]
   adsQueueItems      AdsQueueItem[]
 
+  adsMicrobatches AdsMicrobatch[]
+
   @@unique([organizationId, id])
   @@index([organizationId, assignedEmployeeId, status])
   @@index([organizationId, status])
@@ -390,6 +405,9 @@ model TrafficPool {
   adsRequests   AdsRequest[]
   adsQueueItems AdsQueueItem[]
 
+  schedulerState  TrafficPoolSchedulerState?
+  adsMicrobatches AdsMicrobatch[]
+
   @@unique([organizationId, id])
   @@unique([organizationId, slug])
   @@index([organizationId, siteId, status])
@@ -409,6 +427,8 @@ model TrafficPoolMember {
   organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   trafficPool    TrafficPool    @relation(fields: [organizationId, trafficPoolId], references: [organizationId, id], onDelete: Cascade)
   whatsAppNumber WhatsAppNumber @relation(fields: [organizationId, whatsAppNumberId], references: [organizationId, id], onDelete: Restrict)
+
+  adsMicrobatches AdsMicrobatch[]
 
   @@unique([trafficPoolId, whatsAppNumberId])
   @@unique([trafficPoolId, position])
@@ -450,7 +470,11 @@ model AdsRequest {
   whatsAppNumber   WhatsAppNumber? @relation(fields: [whatsAppNumberId], references: [id])
   whatsAppNumberId String?         @db.Uuid
 
+  scheduledLeadCount Int             @default(0)
+  microbatches       AdsMicrobatch[]
+
   @@unique([organizationId, id])
+  @@index([organizationId, employeeId, status, scheduledLeadCount])
   @@index([organizationId, employeeId, status])
   @@index([organizationId, siteId, status])
   @@index([organizationId, trafficPoolId, status])
@@ -485,12 +509,73 @@ model AdsQueueItem {
   whatsAppNumber   WhatsAppNumber? @relation(fields: [whatsAppNumberId], references: [id])
   whatsAppNumberId String?         @db.Uuid
 
+  claimedByWorkerId String?         @db.VarChar(120)
+  leaseExpiresAt    DateTime?       @db.Timestamptz(3)
+  lastAttemptAt     DateTime?       @db.Timestamptz(3)
+  microbatches      AdsMicrobatch[]
+
   @@unique([organizationId, id])
   @@unique([organizationId, adsRequestId])
+  @@index([organizationId, status, leaseExpiresAt])
   @@index([organizationId, status, priority, availableAt, enqueuedAt])
   @@index([organizationId, employeeId, status])
   @@index([organizationId, trafficPoolId, status])
   @@map("ads_queue_items")
+}
+
+model TrafficPoolSchedulerState {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  trafficPoolId  String   @db.Uuid
+  nextPosition   Int      @default(1)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  trafficPool  TrafficPool  @relation(fields: [organizationId, trafficPoolId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, trafficPoolId])
+  @@index([organizationId, updatedAt])
+  @@map("traffic_pool_scheduler_states")
+}
+
+model AdsMicrobatch {
+  id                  String              @id @default(uuid()) @db.Uuid
+  organizationId      String              @db.Uuid
+  adsRequestId        String              @db.Uuid
+  adsQueueItemId      String              @db.Uuid
+  employeeId          String              @db.Uuid
+  trafficPoolId       String              @db.Uuid
+  trafficPoolMemberId String              @db.Uuid
+  whatsAppNumberId    String              @db.Uuid
+  sequence            Int
+  reservedLeadCount   Int
+  deliveredLeadCount  Int                 @default(0)
+  status              AdsMicrobatchStatus @default(PLANNED)
+  plannedAt           DateTime            @default(now()) @db.Timestamptz(3)
+  startedAt           DateTime?           @db.Timestamptz(3)
+  completedAt         DateTime?           @db.Timestamptz(3)
+  cancelledAt         DateTime?           @db.Timestamptz(3)
+  failureReason       String?             @db.VarChar(500)
+  createdAt           DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime            @updatedAt @db.Timestamptz(3)
+
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  adsRequest        AdsRequest        @relation(fields: [organizationId, adsRequestId], references: [organizationId, id], onDelete: Cascade)
+  adsQueueItem      AdsQueueItem      @relation(fields: [organizationId, adsQueueItemId], references: [organizationId, id], onDelete: Cascade)
+  employee          Employee          @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict)
+  trafficPool       TrafficPool       @relation(fields: [organizationId, trafficPoolId], references: [organizationId, id], onDelete: Restrict)
+  trafficPoolMember TrafficPoolMember @relation(fields: [trafficPoolMemberId], references: [id], onDelete: Restrict)
+  whatsAppNumber    WhatsAppNumber    @relation(fields: [organizationId, whatsAppNumberId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([adsRequestId, sequence])
+  @@index([organizationId, employeeId, status])
+  @@index([organizationId, trafficPoolId, status])
+  @@index([organizationId, whatsAppNumberId, status])
+  @@index([organizationId, adsRequestId, status])
+  @@map("ads_microbatches")
 }
 
 model AuditLog {

@@ -1386,7 +1386,7 @@ Write-Host "[OK] Nenhum .env real versionado." -ForegroundColor Green
 Write-Host ""
 Write-Host "==== Secret scan ====" -ForegroundColor Cyan
 
-$SecretPattern = 'sk-proj-|AKIA[0-9A-Z]{16}|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY'
+$SecretPattern = ('sk-' + 'proj-' + '|AKIA' + '[0-9A-Z]{16}' + '|BEGIN ' + '(RSA|OPENSSH|EC)' + ' PRIVATE KEY')
 
 [string[]]$SecretMatches = @(
     & git grep `

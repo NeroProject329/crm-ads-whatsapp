@@ -1,4 +1,4 @@
-﻿import {
+import {
   ConflictException,
   ForbiddenException,
   Inject,
@@ -258,17 +258,21 @@ export class AdsService {
       return this.mapRequest(request);
     }
 
-    if (request.status !== 'QUEUED') {
+    if (
+      request.status !== 'QUEUED' &&
+      request.status !== 'PROCESSING' &&
+      request.status !== 'PARTIALLY_FULFILLED'
+    ) {
       throw new ConflictException({
         code: 'ADS_REQUEST_NOT_CANCELLABLE',
-        message: 'Only QUEUED ADS requests can be cancelled during Stage 4.',
+        message: 'This ADS request can no longer be cancelled.',
       });
     }
 
-    if (!request.queueItem || request.queueItem.status !== 'WAITING') {
+    if (!request.queueItem) {
       throw new ConflictException({
-        code: 'ADS_QUEUE_ITEM_NOT_CANCELLABLE',
-        message: 'The ADS queue item is no longer WAITING.',
+        code: 'ADS_QUEUE_ITEM_NOT_FOUND',
+        message: 'ADS queue item was not found for this request.',
       });
     }
 
@@ -276,9 +280,13 @@ export class AdsService {
     const now = new Date();
 
     const updated = await this.database.client.$transaction(async (transaction) => {
-      await transaction.adsRequest.update({
+      const requestUpdate = await transaction.adsRequest.updateMany({
         where: {
           id: request.id,
+          organizationId: principal.organizationId,
+          status: {
+            in: ['QUEUED', 'PROCESSING', 'PARTIALLY_FULFILLED'],
+          },
         },
 
         data: {
@@ -286,12 +294,39 @@ export class AdsService {
           cancelledAt: now,
         },
       });
+
+      if (requestUpdate.count !== 1) {
+        throw new ConflictException({
+          code: 'ADS_REQUEST_CANCEL_CONFLICT',
+          message: 'ADS request changed before cancellation could complete.',
+        });
+      }
 
       const queueUpdate = await transaction.adsQueueItem.updateMany({
         where: {
           organizationId: principal.organizationId,
           adsRequestId: request.id,
-          status: 'WAITING',
+          status: {
+            in: ['WAITING', 'CLAIMED'],
+          },
+        },
+
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: now,
+          claimedAt: null,
+          claimedByWorkerId: null,
+          leaseExpiresAt: null,
+        },
+      });
+
+      const microbatchUpdate = await transaction.adsMicrobatch.updateMany({
+        where: {
+          organizationId: principal.organizationId,
+          adsRequestId: request.id,
+          status: {
+            in: ['PLANNED', 'DELIVERING'],
+          },
         },
 
         data: {
@@ -299,13 +334,6 @@ export class AdsService {
           cancelledAt: now,
         },
       });
-
-      if (queueUpdate.count !== 1) {
-        throw new ConflictException({
-          code: 'ADS_QUEUE_CANCEL_CONFLICT',
-          message: 'The queue item changed before cancellation could complete.',
-        });
-      }
 
       await transaction.auditLog.create({
         data: {
@@ -316,24 +344,49 @@ export class AdsService {
           resourceType: 'ads_request',
           resourceId: request.id,
           outcome: 'SUCCESS',
-        },
-      });
-
-      await transaction.auditLog.create({
-        data: {
-          organizationId: principal.organizationId,
-          actorType: 'USER',
-          actorUserId: principal.userId,
-          action: 'ads_queue.cancelled',
-          resourceType: 'ads_queue_item',
-          resourceId: queueItemId,
-          outcome: 'SUCCESS',
 
           metadata: {
-            adsRequestId: request.id,
+            queueItemsCancelled: queueUpdate.count,
+            microbatchesCancelled: microbatchUpdate.count,
           },
         },
       });
+
+      if (queueUpdate.count > 0) {
+        await transaction.auditLog.create({
+          data: {
+            organizationId: principal.organizationId,
+            actorType: 'USER',
+            actorUserId: principal.userId,
+            action: 'ads_queue.cancelled',
+            resourceType: 'ads_queue_item',
+            resourceId: queueItemId,
+            outcome: 'SUCCESS',
+
+            metadata: {
+              adsRequestId: request.id,
+            },
+          },
+        });
+      }
+
+      if (microbatchUpdate.count > 0) {
+        await transaction.auditLog.create({
+          data: {
+            organizationId: principal.organizationId,
+            actorType: 'USER',
+            actorUserId: principal.userId,
+            action: 'ads_microbatch.cancelled',
+            resourceType: 'ads_request',
+            resourceId: request.id,
+            outcome: 'SUCCESS',
+
+            metadata: {
+              count: microbatchUpdate.count,
+            },
+          },
+        });
+      }
 
       return transaction.adsRequest.findUniqueOrThrow({
         where: {
@@ -351,7 +404,6 @@ export class AdsService {
 
     return this.mapRequest(updated);
   }
-
   async listQueue(principal: AuthenticatedPrincipal): Promise<AdsQueueListResponse> {
     const employeeId = this.isAdmin(principal) ? null : await this.getCurrentEmployeeId(principal);
 
@@ -518,6 +570,7 @@ export class AdsService {
       trafficPoolId: request.trafficPoolId,
       requestedByUserId: request.requestedByUserId,
       requestedLeadCount: request.requestedLeadCount,
+      scheduledLeadCount: request.scheduledLeadCount,
       fulfilledLeadCount: request.fulfilledLeadCount,
       status: request.status,
       notes: request.notes,
@@ -550,6 +603,9 @@ export class AdsService {
             status: request.queueItem.status,
             priority: request.queueItem.priority,
             attempts: request.queueItem.attempts,
+            claimedByWorkerId: request.queueItem.claimedByWorkerId,
+            leaseExpiresAt: request.queueItem.leaseExpiresAt?.toISOString() ?? null,
+            lastAttemptAt: request.queueItem.lastAttemptAt?.toISOString() ?? null,
             enqueuedAt: request.queueItem.enqueuedAt.toISOString(),
             availableAt: request.queueItem.availableAt.toISOString(),
             claimedAt: request.queueItem.claimedAt?.toISOString() ?? null,
@@ -573,6 +629,9 @@ export class AdsService {
       status: item.status,
       priority: item.priority,
       attempts: item.attempts,
+      claimedByWorkerId: item.claimedByWorkerId,
+      leaseExpiresAt: item.leaseExpiresAt?.toISOString() ?? null,
+      lastAttemptAt: item.lastAttemptAt?.toISOString() ?? null,
       enqueuedAt: item.enqueuedAt.toISOString(),
       availableAt: item.availableAt.toISOString(),
       claimedAt: item.claimedAt?.toISOString() ?? null,
@@ -583,6 +642,7 @@ export class AdsService {
         id: item.adsRequest.id,
         status: item.adsRequest.status,
         requestedLeadCount: item.adsRequest.requestedLeadCount,
+        scheduledLeadCount: item.adsRequest.scheduledLeadCount,
         fulfilledLeadCount: item.adsRequest.fulfilledLeadCount,
       },
 

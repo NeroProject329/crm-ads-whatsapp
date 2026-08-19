@@ -54,3 +54,28 @@ Implementado: AdsRequest, AdsQueueItem, fila persistente PostgreSQL, criacao e c
 Documentacao: docs/ETAPA_4_ADS_REQUESTS_QUEUE.md e docs/DECISOES_ETAPA_4.md.
 
 Proxima: Etapa 5 - Scheduler, microlotes, round-robin e backpressure.
+
+## Etapa 5 - Scheduler + Microbatches
+
+Status: CONCLUIDA.
+
+Implementado:
+
+- claim atomico
+- worker lease
+- lease recovery
+- AdsMicrobatch
+- TrafficPoolSchedulerState
+- round-robin persistente
+- backpressure por Employee
+- overflow recuperavel
+- multi-worker concurrency
+- scheduledLeadCount
+- cancellation lifecycle Stage 5
+
+Documentacao:
+
+- docs/ETAPA_5_SCHEDULER_MICROBATCHES.md
+- docs/DECISOES_ETAPA_5.md
+
+Proxima: Etapa 6 - Site Monitoring.
