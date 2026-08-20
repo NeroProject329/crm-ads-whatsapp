@@ -13,7 +13,7 @@ Ao final da Etapa 13, os documentos produzidos serão consolidados em um único 
 |     7 | PWA e OneSignal                           | CONCLUIDA    |
 |     8 | Fundação da Meta Cloud API                | CONCLUIDA    |
 |     9 | Caixa de atendimento                      | CONCLUIDA    |
-|    10 | Leads únicos e atribuição                 | NÃO INICIADA |
+|    10 | Leads únicos e atribuição                 | CONCLUIDA    |
 |    11 | Saúde, incidentes e contingência          | NÃO INICIADA |
 |    12 | Segurança, staging e produção             | NÃO INICIADA |
 |    13 | Corte operacional e desativação do legado | NÃO INICIADA |
@@ -195,3 +195,35 @@ Documentacao:
 - docs/DECISOES_ETAPA_9.md
 
 Proxima: Etapa 10 - Leads unicos e atribuicao.
+
+## Etapa 10 - Leads unicos e atribuicao
+
+Status: CONCLUIDA.
+
+Implementado:
+
+- Lead
+- LeadAttribution
+- Organization + waId unique lead identity
+- inboundMessageCount
+- WhatsApp -> ADS attribution
+- FIFO microbatch consumption
+- deliveredLeadCount real
+- fulfilledLeadCount real
+- ATTRIBUTED / EXCESS
+- NUMBER_UNASSIGNED
+- NO_RESERVED_CAPACITY
+- concurrent contact deduplication
+- concurrent slot protection
+- AdsRequest fulfillment
+- lead.read
+- Leads API
+- Employee isolation
+- tenant isolation
+
+Documentacao:
+
+- docs/ETAPA_10_LEADS_ATRIBUICAO.md
+- docs/DECISOES_ETAPA_10.md
+
+Proxima: Etapa 11 - Saude, contingencia e recuperacao dos numeros WhatsApp.

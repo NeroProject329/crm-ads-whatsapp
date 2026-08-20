@@ -18,6 +18,8 @@ import { NotificationsModule } from './notifications/notifications.module.js';
 
 import { InboxModule } from './inbox/inbox.module.js';
 
+import { LeadsModule } from './leads/leads.module.js';
+
 @Module({
   controllers: [HealthController],
 
@@ -30,6 +32,7 @@ import { InboxModule } from './inbox/inbox.module.js';
     AdsModule,
     NotificationsModule,
     InboxModule,
+    LeadsModule,
   ],
 })
 export class AppModule {}

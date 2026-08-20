@@ -200,6 +200,11 @@ enum WhatsAppMessageStatus {
   DELETED
 }
 
+enum LeadStatus {
+  ATTRIBUTED
+  EXCESS
+}
+
 model Organization {
   id        String             @id @default(uuid()) @db.Uuid
   name      String             @db.VarChar(160)
@@ -243,6 +248,9 @@ model Organization {
   whatsAppMessages            WhatsAppMessage[]
   whatsAppMessageStatusEvents WhatsAppMessageStatusEvent[]
   whatsAppQuickReplies        WhatsAppQuickReply[]
+
+  leads            Lead[]
+  leadAttributions LeadAttribution[]
 
   @@index([status])
   @@map("organizations")
@@ -325,6 +333,9 @@ model Employee {
   adsMicrobatches AdsMicrobatch[]
 
   assignedWhatsAppConversations WhatsAppConversation[]
+
+  ownedLeads       Lead[]            @relation("LeadOwnerEmployee")
+  leadAttributions LeadAttribution[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, userId])
@@ -609,6 +620,9 @@ model WhatsAppNumber {
   inboxMessages            WhatsAppMessage[]
   inboxMessageStatusEvents WhatsAppMessageStatusEvent[]
 
+  firstSeenLeads   Lead[]            @relation("LeadFirstWhatsAppNumber")
+  leadAttributions LeadAttribution[]
+
   @@unique([organizationId, id])
   @@index([organizationId, assignedEmployeeId, status])
   @@index([organizationId, status])
@@ -664,6 +678,8 @@ model WhatsAppContact {
   organization  Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   conversations WhatsAppConversation[]
   messages      WhatsAppMessage[]
+
+  lead Lead?
 
   @@unique([organizationId, id])
   @@unique([organizationId, waId])
@@ -739,6 +755,9 @@ model WhatsAppMessage {
   contact        WhatsAppContact      @relation(fields: [organizationId, contactId], references: [organizationId, id], onDelete: Restrict)
   sourceEnvelope MetaWebhookEnvelope? @relation(fields: [sourceEnvelopeId], references: [id], onDelete: SetNull)
 
+  firstSeenLead   Lead?            @relation("LeadFirstInboundMessage")
+  leadAttribution LeadAttribution? @relation("LeadAttributionInboundMessage")
+
   @@unique([organizationId, id])
   @@index([organizationId, conversationId, createdAt])
   @@index([organizationId, whatsAppNumberId, createdAt])
@@ -788,6 +807,71 @@ model WhatsAppQuickReply {
   @@unique([organizationId, shortcut])
   @@index([organizationId, deletedAt, title])
   @@map("whatsapp_quick_replies")
+}
+
+model Lead {
+  id                    String     @id @default(uuid()) @db.Uuid
+  organizationId        String     @db.Uuid
+  contactId             String     @db.Uuid
+  firstInboundMessageId String     @db.Uuid
+  firstWhatsAppNumberId String     @db.Uuid
+  ownerEmployeeId       String?    @db.Uuid
+  waIdSnapshot          String     @db.VarChar(64)
+  profileNameSnapshot   String?    @db.VarChar(160)
+  status                LeadStatus @default(EXCESS)
+  excessReason          String?    @db.VarChar(120)
+  firstSeenAt           DateTime   @db.Timestamptz(3)
+  lastSeenAt            DateTime   @db.Timestamptz(3)
+  inboundMessageCount   Int        @default(1)
+  attributedAt          DateTime?  @db.Timestamptz(3)
+  createdAt             DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime   @updatedAt @db.Timestamptz(3)
+
+  organization        Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  contact             WhatsAppContact  @relation(fields: [organizationId, contactId], references: [organizationId, id], onDelete: Restrict)
+  firstInboundMessage WhatsAppMessage  @relation("LeadFirstInboundMessage", fields: [organizationId, firstInboundMessageId], references: [organizationId, id], onDelete: Restrict)
+  firstWhatsAppNumber WhatsAppNumber   @relation("LeadFirstWhatsAppNumber", fields: [organizationId, firstWhatsAppNumberId], references: [organizationId, id], onDelete: Restrict)
+  ownerEmployee       Employee?        @relation("LeadOwnerEmployee", fields: [organizationId, ownerEmployeeId], references: [organizationId, id], onDelete: Restrict)
+  attribution         LeadAttribution?
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, contactId])
+  @@unique([organizationId, firstInboundMessageId])
+  @@index([organizationId, status, firstSeenAt])
+  @@index([organizationId, ownerEmployeeId, status, firstSeenAt])
+  @@index([organizationId, firstWhatsAppNumberId, status, firstSeenAt])
+  @@index([organizationId, waIdSnapshot])
+  @@map("leads")
+}
+
+model LeadAttribution {
+  id               String   @id @default(uuid()) @db.Uuid
+  organizationId   String   @db.Uuid
+  leadId           String   @db.Uuid
+  adsRequestId     String   @db.Uuid
+  adsMicrobatchId  String   @db.Uuid
+  employeeId       String   @db.Uuid
+  whatsAppNumberId String   @db.Uuid
+  inboundMessageId String   @db.Uuid
+  attributedAt     DateTime @default(now()) @db.Timestamptz(3)
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  lead           Lead            @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Cascade)
+  adsRequest     AdsRequest      @relation(fields: [organizationId, adsRequestId], references: [organizationId, id], onDelete: Restrict)
+  adsMicrobatch  AdsMicrobatch   @relation(fields: [organizationId, adsMicrobatchId], references: [organizationId, id], onDelete: Restrict)
+  employee       Employee        @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict)
+  whatsAppNumber WhatsAppNumber  @relation(fields: [organizationId, whatsAppNumberId], references: [organizationId, id], onDelete: Restrict)
+  inboundMessage WhatsAppMessage @relation("LeadAttributionInboundMessage", fields: [organizationId, inboundMessageId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, leadId])
+  @@unique([organizationId, inboundMessageId])
+  @@index([organizationId, adsRequestId, attributedAt])
+  @@index([organizationId, adsMicrobatchId, attributedAt])
+  @@index([organizationId, employeeId, attributedAt])
+  @@index([organizationId, whatsAppNumberId, attributedAt])
+  @@map("lead_attributions")
 }
 
 model TrafficPool {
@@ -875,6 +959,8 @@ model AdsRequest {
 
   scheduledLeadCount Int             @default(0)
   microbatches       AdsMicrobatch[]
+
+  leadAttributions LeadAttribution[]
 
   @@unique([organizationId, id])
   @@index([organizationId, employeeId, status, scheduledLeadCount])
@@ -971,6 +1057,8 @@ model AdsMicrobatch {
   trafficPool       TrafficPool       @relation(fields: [organizationId, trafficPoolId], references: [organizationId, id], onDelete: Restrict)
   trafficPoolMember TrafficPoolMember @relation(fields: [trafficPoolMemberId], references: [id], onDelete: Restrict)
   whatsAppNumber    WhatsAppNumber    @relation(fields: [organizationId, whatsAppNumberId], references: [organizationId, id], onDelete: Restrict)
+
+  leadAttributions LeadAttribution[]
 
   @@unique([organizationId, id])
   @@unique([adsRequestId, sequence])

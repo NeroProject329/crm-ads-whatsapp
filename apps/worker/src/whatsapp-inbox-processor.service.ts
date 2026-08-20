@@ -4,6 +4,8 @@ import { parseWhatsAppWebhookEvents } from '@crm/meta-cloud-api';
 
 import type { WhatsAppInboundWebhookEvent, WhatsAppStatusWebhookEvent } from '@crm/meta-cloud-api';
 
+import { LeadAttributionService } from './lead-attribution.service.js';
+
 import type { WhatsAppRuntimeConfig } from './whatsapp-runtime.config.js';
 
 type JsonPrimitive = string | number | boolean | null;
@@ -170,6 +172,7 @@ function mapStatus(status: string): WhatsAppMessageStatus | null {
 }
 
 export class WhatsAppInboxProcessorService {
+  private readonly leadAttributionService = new LeadAttributionService();
   constructor(
     private readonly database: CrmDatabaseClient,
 
@@ -557,7 +560,7 @@ export class WhatsAppInboxProcessorService {
         },
       });
 
-      await transaction.whatsAppMessage.create({
+      const inboundMessage = await transaction.whatsAppMessage.create({
         data: {
           organizationId,
 
@@ -587,6 +590,24 @@ export class WhatsAppInboxProcessorService {
 
           availableAt: providerTimestamp,
         },
+      });
+
+      await this.leadAttributionService.recordInboundLead(transaction, {
+        organizationId,
+
+        contactId: contact.id,
+
+        whatsAppNumberId: number.id,
+
+        ownerEmployeeId: number.assignedEmployeeId,
+
+        inboundMessageId: inboundMessage.id,
+
+        waId: event.from,
+
+        profileName: event.profileName,
+
+        providerTimestamp,
       });
 
       return true;

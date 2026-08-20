@@ -56,6 +56,7 @@ const permissionDefinitions = [
   ['inbox.manage', 'Responder e gerenciar conversas WhatsApp'],
   ['quick_reply.read', 'Visualizar respostas rapidas'],
   ['quick_reply.manage', 'Gerenciar respostas rapidas'],
+  ['lead.read', 'Visualizar leads unicos e atribuicoes'],
 ] as const;
 
 async function seed(): Promise<void> {
@@ -201,6 +202,7 @@ async function seed(): Promise<void> {
     'inbox.read',
     'inbox.manage',
     'quick_reply.read',
+    'lead.read',
   ]);
 
   await prisma.rolePermission.createMany({

@@ -27,7 +27,8 @@ export type PermissionCode =
   | 'inbox.read'
   | 'inbox.manage'
   | 'quick_reply.read'
-  | 'quick_reply.manage';
+  | 'quick_reply.manage'
+  | 'lead.read';
 
 export type AuthorizationContext = Readonly<{
   permissions: readonly PermissionCode[];
