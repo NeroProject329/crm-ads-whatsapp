@@ -25,6 +25,10 @@ import { WhatsAppOutboundDispatcherService } from './whatsapp-outbound-dispatche
 
 import { parseWhatsAppRuntimeConfig } from './whatsapp-runtime.config.js';
 
+import { parseWhatsAppNumberHealthConfig } from './whatsapp-number-health.config.js';
+
+import { WhatsAppNumberHealthSyncService } from './whatsapp-number-health-sync.service.js';
+
 const service = 'worker' as const;
 
 const heartbeatIntervalMs = 30_000;
@@ -34,6 +38,8 @@ const schedulerConfig = parseAdsSchedulerConfig();
 const notificationConfig = parseNotificationDispatcherConfig();
 
 const whatsAppConfig = parseWhatsAppRuntimeConfig();
+
+const numberHealthConfig = parseWhatsAppNumberHealthConfig();
 
 const workerId =
   process.env.ADS_WORKER_ID?.trim() || `${hostname()}-${process.pid}-${randomUUID()}`;
@@ -65,6 +71,13 @@ const outboundDispatcher = new WhatsAppOutboundDispatcherService(
   metaClient,
 );
 
+const numberHealthSync = new WhatsAppNumberHealthSyncService(
+  database,
+  workerId,
+  numberHealthConfig,
+  metaClient,
+);
+
 let schedulerRunning = false;
 
 let notificationRunning = false;
@@ -72,6 +85,8 @@ let notificationRunning = false;
 let inboxRunning = false;
 
 let outboundRunning = false;
+
+let numberHealthRunning = false;
 
 let shuttingDown = false;
 
@@ -175,6 +190,27 @@ async function runOutboundTick(): Promise<void> {
   }
 }
 
+async function runNumberHealthTick(): Promise<void> {
+  if (numberHealthRunning || shuttingDown) {
+    return;
+  }
+
+  numberHealthRunning = true;
+
+  try {
+    const summary = await numberHealthSync.runTick();
+
+    if (summary.claimed > 0 || summary.failed > 0) {
+      log('whatsapp.number_health.tick', summary);
+    }
+  } catch (error) {
+    log('whatsapp.number_health.error', {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  } finally {
+    numberHealthRunning = false;
+  }
+}
 log('service.started', {
   heartbeatIntervalMs,
 
@@ -190,10 +226,20 @@ log('service.started', {
 
   whatsAppOutboundIntervalMs: whatsAppConfig.outboundIntervalMs,
 
+  whatsAppHealthIntervalMs: numberHealthConfig.intervalMs,
+
+  whatsAppHealthPollIntervalMs: numberHealthConfig.pollIntervalMs,
+
   metaOutboundConfigured: metaConfigured,
 });
 
-await Promise.all([runSchedulerTick(), runNotificationTick(), runInboxTick(), runOutboundTick()]);
+await Promise.all([
+  runSchedulerTick(),
+  runNotificationTick(),
+  runInboxTick(),
+  runOutboundTick(),
+  runNumberHealthTick(),
+]);
 
 const schedulerTimer = setInterval(() => {
   void runSchedulerTick();
@@ -211,12 +257,17 @@ const outboundTimer = setInterval(() => {
   void runOutboundTick();
 }, whatsAppConfig.outboundIntervalMs);
 
+const numberHealthTimer = setInterval(() => {
+  void runNumberHealthTick();
+}, numberHealthConfig.intervalMs);
+
 const heartbeatTimer = setInterval(() => {
   log('service.heartbeat', {
     schedulerRunning,
     notificationRunning,
     inboxRunning,
     outboundRunning,
+    numberHealthRunning,
   });
 }, heartbeatIntervalMs);
 
@@ -235,13 +286,21 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
 
   clearInterval(outboundTimer);
 
+  clearInterval(numberHealthTimer);
+
   clearInterval(heartbeatTimer);
 
   log('service.stopping', {
     signal,
   });
 
-  while (schedulerRunning || notificationRunning || inboxRunning || outboundRunning) {
+  while (
+    schedulerRunning ||
+    notificationRunning ||
+    inboxRunning ||
+    outboundRunning ||
+    numberHealthRunning
+  ) {
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 50);
     });

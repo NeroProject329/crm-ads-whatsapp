@@ -11,3 +11,5 @@ export {
   type WhatsAppStatusWebhookEvent,
   type WhatsAppWebhookEvent,
 } from './whatsapp-webhook-events.js';
+export * from './phone-number-profile.js';
+export * from './phone-number-quality-webhook.js';

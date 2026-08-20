@@ -28,7 +28,9 @@ export type PermissionCode =
   | 'inbox.manage'
   | 'quick_reply.read'
   | 'quick_reply.manage'
-  | 'lead.read';
+  | 'lead.read'
+  | 'whatsapp_health.read'
+  | 'whatsapp_health.manage';
 
 export type AuthorizationContext = Readonly<{
   permissions: readonly PermissionCode[];

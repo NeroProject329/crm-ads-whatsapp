@@ -340,6 +340,22 @@ export class AdsSchedulerService {
             deletedAt: null,
             status: 'ACTIVE',
             assignedEmployeeId: queueItem.employeeId,
+
+            OR: [
+              {
+                healthState: {
+                  is: null,
+                },
+              },
+
+              {
+                healthState: {
+                  is: {
+                    schedulerEligible: true,
+                  },
+                },
+              },
+            ],
           },
         },
 
@@ -423,6 +439,37 @@ export class AdsSchedulerService {
 
       const selection = selectRoundRobinMember(eligibleMembers, initialNextPosition);
 
+      await transaction.$queryRawUnsafe(
+        'WITH lock_guard AS MATERIALIZED (SELECT pg_advisory_xact_lock(hashtextextended($1, 0))) SELECT TRUE AS locked FROM lock_guard',
+        `whatsapp-number-health:${queueItem.organizationId}:${selection.member.whatsAppNumberId}`,
+      );
+
+      const selectedNumberHealth = await transaction.whatsAppNumberHealthState.findUnique({
+        where: {
+          organizationId_whatsAppNumberId: {
+            organizationId: queueItem.organizationId,
+            whatsAppNumberId: selection.member.whatsAppNumberId,
+          },
+        },
+
+        select: {
+          schedulerEligible: true,
+        },
+      });
+
+      if (selectedNumberHealth && !selectedNumberHealth.schedulerEligible) {
+        await this.deferClaimedQueueItem(
+          transaction,
+          queueItem.id,
+          queueItem.organizationId,
+          request.id,
+          now,
+          this.config.backpressureDelayMs,
+          'ads_queue.number_health_unavailable',
+        );
+
+        return 'DEFERRED';
+      }
       const maxSequence = await transaction.adsMicrobatch.aggregate({
         where: {
           adsRequestId: request.id,

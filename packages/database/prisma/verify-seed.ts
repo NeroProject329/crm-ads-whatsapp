@@ -40,6 +40,8 @@ const expectedPermissionCodes = [
   'traffic_pool.read',
   'user.manage',
   'user.read',
+  'whatsapp_health.manage',
+  'whatsapp_health.read',
   'whatsapp_number.manage',
   'whatsapp_number.read',
 ] as const;
@@ -57,6 +59,7 @@ const expectedEmployeePermissionCodes = [
   'quick_reply.read',
   'site.read',
   'traffic_pool.read',
+  'whatsapp_health.read',
   'whatsapp_number.read',
 ] as const;
 
@@ -221,7 +224,7 @@ async function verifySeed(): Promise<void> {
 
   assert(
     JSON.stringify(employeePermissionCodes) === JSON.stringify(expectedEmployeePermissionCodes),
-    'EMPLOYEE permissions do not match Stage 9.',
+    'EMPLOYEE permissions do not match Stage 11.',
   );
 
   console.log(

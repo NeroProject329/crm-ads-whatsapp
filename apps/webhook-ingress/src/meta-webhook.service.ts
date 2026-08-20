@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { Inject, Injectable } from '@nestjs/common';
 
-import { extractMetaWebhookSummary } from '@crm/meta-cloud-api';
+import { extractMetaWebhookSummary, parseMetaPhoneNumberQualityUpdates } from '@crm/meta-cloud-api';
 
 import { DatabaseService } from './database.service.js';
 
@@ -29,7 +29,7 @@ function normalizeJsonValue(value: unknown): JsonValue {
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => normalizeJsonValue(item));
+    return value.map(normalizeJsonValue);
   }
 
   if (typeof value === 'object' && value !== null) {
@@ -57,10 +57,23 @@ function normalizePayload(value: unknown): JsonObject {
   };
 }
 
+function normalizePhoneDigits(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const digits = value.replace(/\D/g, '');
+
+  return digits.length > 0 ? digits : null;
+}
+
 export type MetaWebhookIngestResult = Readonly<{
   envelopeId: string;
+
   status: 'RECEIVED' | 'UNMATCHED' | 'IGNORED';
+
   organizationId: string | null;
+
   whatsAppNumberId: string | null;
 }>;
 
@@ -71,8 +84,18 @@ export class MetaWebhookService {
     private readonly database: DatabaseService,
   ) {}
 
-  async ingest(payload: unknown, rawBody: Buffer): Promise<MetaWebhookIngestResult> {
+  async ingest(
+    payload: unknown,
+
+    rawBody: Buffer,
+  ): Promise<MetaWebhookIngestResult> {
     const summary = extractMetaWebhookSummary(payload);
+
+    const qualityUpdates = parseMetaPhoneNumberQualityUpdates(payload);
+
+    const firstQualityUpdate = qualityUpdates.at(0);
+
+    const displayDigits = normalizePhoneDigits(firstQualityUpdate?.displayPhoneNumber ?? null);
 
     const payloadHash = createHash('sha256').update(rawBody).digest('hex');
 
@@ -96,7 +119,27 @@ export class MetaWebhookService {
             organizationId: true,
           },
         })
-      : null;
+      : displayDigits
+        ? await this.database.client.whatsAppNumber.findFirst({
+            where: {
+              e164: `+${displayDigits}`,
+
+              deletedAt: null,
+
+              ...(summary.wabaId
+                ? {
+                    metaWabaId: summary.wabaId,
+                  }
+                : {}),
+            },
+
+            select: {
+              id: true,
+
+              organizationId: true,
+            },
+          })
+        : null;
 
     const status: 'RECEIVED' | 'UNMATCHED' | 'IGNORED' =
       summary.object !== 'whatsapp_business_account'
@@ -146,6 +189,30 @@ export class MetaWebhookService {
 
           data: {
             metaWebhookLastSeenAt: receivedAt,
+          },
+        });
+
+        await transaction.whatsAppNumberHealthState.upsert({
+          where: {
+            organizationId_whatsAppNumberId: {
+              organizationId: number.organizationId,
+
+              whatsAppNumberId: number.id,
+            },
+          },
+
+          create: {
+            organizationId: number.organizationId,
+
+            whatsAppNumberId: number.id,
+
+            lastMetaWebhookAt: receivedAt,
+
+            nextCheckAt: receivedAt,
+          },
+
+          update: {
+            lastMetaWebhookAt: receivedAt,
           },
         });
       }

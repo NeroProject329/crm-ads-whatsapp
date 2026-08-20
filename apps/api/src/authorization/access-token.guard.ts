@@ -177,7 +177,9 @@ export class AccessTokenGuard implements CanActivate {
       value === 'inbox.manage' ||
       value === 'quick_reply.read' ||
       value === 'quick_reply.manage' ||
-      value === 'lead.read'
+      value === 'lead.read' ||
+      value === 'whatsapp_health.read' ||
+      value === 'whatsapp_health.manage'
     );
   }
 

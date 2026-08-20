@@ -86,6 +86,36 @@ enum WhatsAppNumberStatus {
   ARCHIVED
 }
 
+enum MetaPhoneQualityRating {
+  UNKNOWN
+  GREEN
+  YELLOW
+  RED
+  NA
+}
+
+enum WhatsAppNumberHealthStatus {
+  UNKNOWN
+  HEALTHY
+  DEGRADED
+  CRITICAL
+  RECOVERING
+  DISABLED
+}
+
+enum WhatsAppNumberHealthSource {
+  META_API
+  META_WEBHOOK
+  CRM_SIGNAL
+  MANUAL
+  SYSTEM
+}
+
+enum WhatsAppNumberIncidentStatus {
+  OPEN
+  RESOLVED
+}
+
 enum TrafficPoolStatus {
   ACTIVE
   PAUSED
@@ -251,6 +281,10 @@ model Organization {
 
   leads            Lead[]
   leadAttributions LeadAttribution[]
+
+  whatsAppNumberHealthStates WhatsAppNumberHealthState[]
+  whatsAppNumberHealthEvents WhatsAppNumberHealthEvent[]
+  whatsAppNumberIncidents    WhatsAppNumberIncident[]
 
   @@index([status])
   @@map("organizations")
@@ -623,10 +657,104 @@ model WhatsAppNumber {
   firstSeenLeads   Lead[]            @relation("LeadFirstWhatsAppNumber")
   leadAttributions LeadAttribution[]
 
+  healthState     WhatsAppNumberHealthState?
+  healthEvents    WhatsAppNumberHealthEvent[]
+  healthIncidents WhatsAppNumberIncident[]
+
   @@unique([organizationId, id])
   @@index([organizationId, assignedEmployeeId, status])
   @@index([organizationId, status])
   @@map("whatsapp_numbers")
+}
+
+model WhatsAppNumberHealthState {
+  id                       String                     @id @default(uuid()) @db.Uuid
+  organizationId           String                     @db.Uuid
+  whatsAppNumberId         String                     @db.Uuid
+  status                   WhatsAppNumberHealthStatus @default(UNKNOWN)
+  schedulerEligible        Boolean                    @default(true)
+  manualPaused             Boolean                    @default(false)
+  metaQualityRating        MetaPhoneQualityRating     @default(UNKNOWN)
+  metaQualityEvent         String?                    @db.VarChar(80)
+  messagingLimitTier       String?                    @db.VarChar(80)
+  lastReasonCode           String?                    @db.VarChar(120)
+  lastReasonMessage        String?                    @db.VarChar(500)
+  lastMetaSyncAt           DateTime?                  @db.Timestamptz(3)
+  lastMetaWebhookAt        DateTime?                  @db.Timestamptz(3)
+  lastHealthyAt            DateTime?                  @db.Timestamptz(3)
+  degradedSinceAt          DateTime?                  @db.Timestamptz(3)
+  criticalSinceAt          DateTime?                  @db.Timestamptz(3)
+  recoveringSinceAt        DateTime?                  @db.Timestamptz(3)
+  consecutiveHealthyChecks Int                        @default(0)
+  consecutiveSyncFailures  Int                        @default(0)
+  nextCheckAt              DateTime                   @default(now()) @db.Timestamptz(3)
+  claimedAt                DateTime?                  @db.Timestamptz(3)
+  claimedByWorkerId        String?                    @db.VarChar(120)
+  leaseExpiresAt           DateTime?                  @db.Timestamptz(3)
+  createdAt                DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt                DateTime                   @updatedAt @db.Timestamptz(3)
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  whatsAppNumber WhatsAppNumber @relation(fields: [organizationId, whatsAppNumberId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, whatsAppNumberId])
+  @@index([organizationId, status, schedulerEligible])
+  @@index([nextCheckAt, leaseExpiresAt])
+  @@index([organizationId, manualPaused])
+  @@map("whatsapp_number_health_states")
+}
+
+model WhatsAppNumberHealthEvent {
+  id                 String                     @id @default(uuid()) @db.Uuid
+  organizationId     String                     @db.Uuid
+  whatsAppNumberId   String                     @db.Uuid
+  sourceEnvelopeId   String?                    @db.Uuid
+  source             WhatsAppNumberHealthSource
+  previousStatus     WhatsAppNumberHealthStatus
+  currentStatus      WhatsAppNumberHealthStatus
+  metaQualityRating  MetaPhoneQualityRating
+  metaQualityEvent   String?                    @db.VarChar(80)
+  messagingLimitTier String?                    @db.VarChar(80)
+  schedulerEligible  Boolean
+  reasonCode         String?                    @db.VarChar(120)
+  reasonMessage      String?                    @db.VarChar(500)
+  occurredAt         DateTime                   @default(now()) @db.Timestamptz(3)
+  createdAt          DateTime                   @default(now()) @db.Timestamptz(3)
+
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  whatsAppNumber WhatsAppNumber       @relation(fields: [organizationId, whatsAppNumberId], references: [organizationId, id], onDelete: Cascade)
+  sourceEnvelope MetaWebhookEnvelope? @relation(fields: [sourceEnvelopeId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, whatsAppNumberId, occurredAt])
+  @@index([organizationId, currentStatus, occurredAt])
+  @@index([sourceEnvelopeId])
+  @@map("whatsapp_number_health_events")
+}
+
+model WhatsAppNumberIncident {
+  id               String                       @id @default(uuid()) @db.Uuid
+  organizationId   String                       @db.Uuid
+  whatsAppNumberId String                       @db.Uuid
+  status           WhatsAppNumberIncidentStatus @default(OPEN)
+  type             String                       @db.VarChar(120)
+  severity         WhatsAppNumberHealthStatus
+  openedReasonCode String?                      @db.VarChar(120)
+  openedReason     String?                      @db.VarChar(500)
+  openedAt         DateTime                     @default(now()) @db.Timestamptz(3)
+  resolvedReason   String?                      @db.VarChar(500)
+  resolvedAt       DateTime?                    @db.Timestamptz(3)
+  createdAt        DateTime                     @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime                     @updatedAt @db.Timestamptz(3)
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  whatsAppNumber WhatsAppNumber @relation(fields: [organizationId, whatsAppNumberId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, whatsAppNumberId, status, openedAt])
+  @@index([organizationId, status, severity])
+  @@map("whatsapp_number_incidents")
 }
 
 model MetaWebhookEnvelope {
@@ -656,6 +784,8 @@ model MetaWebhookEnvelope {
 
   inboxMessages            WhatsAppMessage[]
   inboxMessageStatusEvents WhatsAppMessageStatusEvent[]
+
+  numberHealthEvents WhatsAppNumberHealthEvent[]
 
   @@index([organizationId, status, availableAt])
   @@index([organizationId, whatsAppNumberId, receivedAt])

@@ -14,7 +14,7 @@ Ao final da Etapa 13, os documentos produzidos serão consolidados em um único 
 |     8 | Fundação da Meta Cloud API                | CONCLUIDA    |
 |     9 | Caixa de atendimento                      | CONCLUIDA    |
 |    10 | Leads únicos e atribuição                 | CONCLUIDA    |
-|    11 | Saúde, incidentes e contingência          | NÃO INICIADA |
+|    11 | Saúde, incidentes e contingência          | CONCLUIDA    |
 |    12 | Segurança, staging e produção             | NÃO INICIADA |
 |    13 | Corte operacional e desativação do legado | NÃO INICIADA |
 
@@ -227,3 +227,35 @@ Documentacao:
 - docs/DECISOES_ETAPA_10.md
 
 Proxima: Etapa 11 - Saude, contingencia e recuperacao dos numeros WhatsApp.
+
+## Etapa 11 - Saude e contingencia dos numeros WhatsApp
+
+Status: CONCLUIDA.
+
+Implementado:
+
+- Meta quality rating
+- phone_number_quality_update
+- WhatsAppNumberHealthState
+- WhatsAppNumberHealthEvent
+- WhatsAppNumberIncident
+- schedulerEligible
+- Meta API polling
+- polling claim/lease
+- DEGRADED / CRITICAL / RECOVERING / DISABLED
+- contingency capacity release
+- AdsQueueItem reopen
+- scheduler reroute
+- recovery confirmation
+- manual pause/resume
+- health events
+- incidents
+- Employee isolation
+- audit
+
+Documentacao:
+
+- docs/ETAPA_11_WHATSAPP_NUMBER_HEALTH.md
+- docs/DECISOES_ETAPA_11.md
+
+Proxima: Etapa 12 - Security hardening, staging e production readiness.

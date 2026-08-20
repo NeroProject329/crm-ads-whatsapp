@@ -1,10 +1,15 @@
 import type { CrmDatabaseClient, WhatsAppMessageStatus, WhatsAppMessageType } from '@crm/database';
 
-import { parseWhatsAppWebhookEvents } from '@crm/meta-cloud-api';
+import {
+  parseMetaPhoneNumberQualityUpdates,
+  parseWhatsAppWebhookEvents,
+} from '@crm/meta-cloud-api';
 
 import type { WhatsAppInboundWebhookEvent, WhatsAppStatusWebhookEvent } from '@crm/meta-cloud-api';
 
 import { LeadAttributionService } from './lead-attribution.service.js';
+
+import { WhatsAppNumberHealthDomainService } from './whatsapp-number-health.service.js';
 
 import type { WhatsAppRuntimeConfig } from './whatsapp-runtime.config.js';
 
@@ -172,6 +177,7 @@ function mapStatus(status: string): WhatsAppMessageStatus | null {
 }
 
 export class WhatsAppInboxProcessorService {
+  private readonly numberHealthService = new WhatsAppNumberHealthDomainService();
   private readonly leadAttributionService = new LeadAttributionService();
   constructor(
     private readonly database: CrmDatabaseClient,
@@ -313,6 +319,20 @@ export class WhatsAppInboxProcessorService {
 
     if (!envelope.organizationId || !envelope.whatsAppNumberId) {
       throw new Error('Claimed webhook envelope has no tenant/number mapping.');
+    }
+
+    const qualityUpdates = parseMetaPhoneNumberQualityUpdates(envelope.payload);
+
+    for (const update of qualityUpdates) {
+      await this.database.$transaction(async (transaction) => {
+        await this.numberHealthService.applyMetaWebhook(transaction, {
+          organizationId: envelope.organizationId!,
+          whatsAppNumberId: envelope.whatsAppNumberId!,
+          sourceEnvelopeId: envelope.id,
+          update,
+          observedAt: envelope.receivedAt,
+        });
+      });
     }
 
     const events = parseWhatsAppWebhookEvents(envelope.payload);

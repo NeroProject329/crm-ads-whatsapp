@@ -20,6 +20,8 @@ import { InboxModule } from './inbox/inbox.module.js';
 
 import { LeadsModule } from './leads/leads.module.js';
 
+import { WhatsAppHealthModule } from './whatsapp-health/whatsapp-health.module.js';
+
 @Module({
   controllers: [HealthController],
 
@@ -33,6 +35,7 @@ import { LeadsModule } from './leads/leads.module.js';
     NotificationsModule,
     InboxModule,
     LeadsModule,
+    WhatsAppHealthModule,
   ],
 })
 export class AppModule {}
