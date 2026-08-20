@@ -1,4 +1,4 @@
-﻿import { config } from 'dotenv';
+import { config } from 'dotenv';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -52,6 +52,10 @@ const permissionDefinitions = [
   ['ads_request.manage', 'Criar e gerenciar pedidos de ADS autorizados'],
   ['ads_queue.read', 'Visualizar fila de ADS autorizada'],
   ['ads_queue.manage', 'Gerenciar fila de ADS'],
+  ['inbox.read', 'Visualizar caixa de atendimento WhatsApp'],
+  ['inbox.manage', 'Responder e gerenciar conversas WhatsApp'],
+  ['quick_reply.read', 'Visualizar respostas rapidas'],
+  ['quick_reply.manage', 'Gerenciar respostas rapidas'],
 ] as const;
 
 async function seed(): Promise<void> {
@@ -194,6 +198,9 @@ async function seed(): Promise<void> {
     'ads_request.read',
     'ads_request.manage',
     'ads_queue.read',
+    'inbox.read',
+    'inbox.manage',
+    'quick_reply.read',
   ]);
 
   await prisma.rolePermission.createMany({

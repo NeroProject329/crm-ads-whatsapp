@@ -6,6 +6,8 @@ import { hostname } from 'node:os';
 
 import { createDatabaseClient } from '@crm/database';
 
+import { MetaCloudApiClient, parseMetaCloudApiConfig } from '@crm/meta-cloud-api';
+
 import { AdsSchedulerService } from './ads-scheduler.service.js';
 
 import { NotificationDispatcherService } from './notification-dispatcher.service.js';
@@ -17,6 +19,12 @@ import {
 
 import { parseAdsSchedulerConfig } from './scheduler.config.js';
 
+import { WhatsAppInboxProcessorService } from './whatsapp-inbox-processor.service.js';
+
+import { WhatsAppOutboundDispatcherService } from './whatsapp-outbound-dispatcher.service.js';
+
+import { parseWhatsAppRuntimeConfig } from './whatsapp-runtime.config.js';
+
 const service = 'worker' as const;
 
 const heartbeatIntervalMs = 30_000;
@@ -24,6 +32,8 @@ const heartbeatIntervalMs = 30_000;
 const schedulerConfig = parseAdsSchedulerConfig();
 
 const notificationConfig = parseNotificationDispatcherConfig();
+
+const whatsAppConfig = parseWhatsAppRuntimeConfig();
 
 const workerId =
   process.env.ADS_WORKER_ID?.trim() || `${hostname()}-${process.pid}-${randomUUID()}`;
@@ -38,9 +48,30 @@ const notificationDispatcher = new NotificationDispatcherService(
   notificationConfig,
 );
 
+const metaConfigured = Boolean(
+  process.env.META_GRAPH_API_VERSION?.trim() && process.env.META_ACCESS_TOKEN?.trim(),
+);
+
+const metaClient = metaConfigured
+  ? new MetaCloudApiClient(parseMetaCloudApiConfig(process.env))
+  : null;
+
+const inboxProcessor = new WhatsAppInboxProcessorService(database, workerId, whatsAppConfig);
+
+const outboundDispatcher = new WhatsAppOutboundDispatcherService(
+  database,
+  workerId,
+  whatsAppConfig,
+  metaClient,
+);
+
 let schedulerRunning = false;
 
 let notificationRunning = false;
+
+let inboxRunning = false;
+
+let outboundRunning = false;
 
 let shuttingDown = false;
 
@@ -100,6 +131,50 @@ async function runNotificationTick(): Promise<void> {
   }
 }
 
+async function runInboxTick(): Promise<void> {
+  if (inboxRunning || shuttingDown) {
+    return;
+  }
+
+  inboxRunning = true;
+
+  try {
+    const summary = await inboxProcessor.runTick();
+
+    if (summary.claimed > 0 || summary.failed > 0) {
+      log('whatsapp.inbox.tick', summary);
+    }
+  } catch (error) {
+    log('whatsapp.inbox.error', {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  } finally {
+    inboxRunning = false;
+  }
+}
+
+async function runOutboundTick(): Promise<void> {
+  if (outboundRunning || shuttingDown) {
+    return;
+  }
+
+  outboundRunning = true;
+
+  try {
+    const summary = await outboundDispatcher.runTick();
+
+    if (summary.claimed > 0 || summary.failed > 0 || summary.retried > 0) {
+      log('whatsapp.outbound.tick', summary);
+    }
+  } catch (error) {
+    log('whatsapp.outbound.error', {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  } finally {
+    outboundRunning = false;
+  }
+}
+
 log('service.started', {
   heartbeatIntervalMs,
 
@@ -110,36 +185,40 @@ log('service.started', {
   notificationDispatcherEnabled: isNotificationDispatcherEnabled(notificationConfig),
 
   notificationIntervalMs: notificationConfig.intervalMs,
+
+  whatsAppInboxIntervalMs: whatsAppConfig.inboxIntervalMs,
+
+  whatsAppOutboundIntervalMs: whatsAppConfig.outboundIntervalMs,
+
+  metaOutboundConfigured: metaConfigured,
 });
 
-await Promise.all([runSchedulerTick(), runNotificationTick()]);
+await Promise.all([runSchedulerTick(), runNotificationTick(), runInboxTick(), runOutboundTick()]);
 
-const schedulerTimer = setInterval(
-  () => {
-    void runSchedulerTick();
-  },
+const schedulerTimer = setInterval(() => {
+  void runSchedulerTick();
+}, schedulerConfig.intervalMs);
 
-  schedulerConfig.intervalMs,
-);
+const notificationTimer = setInterval(() => {
+  void runNotificationTick();
+}, notificationConfig.intervalMs);
 
-const notificationTimer = setInterval(
-  () => {
-    void runNotificationTick();
-  },
+const inboxTimer = setInterval(() => {
+  void runInboxTick();
+}, whatsAppConfig.inboxIntervalMs);
 
-  notificationConfig.intervalMs,
-);
+const outboundTimer = setInterval(() => {
+  void runOutboundTick();
+}, whatsAppConfig.outboundIntervalMs);
 
-const heartbeatTimer = setInterval(
-  () => {
-    log('service.heartbeat', {
-      schedulerRunning,
-      notificationRunning,
-    });
-  },
-
-  heartbeatIntervalMs,
-);
+const heartbeatTimer = setInterval(() => {
+  log('service.heartbeat', {
+    schedulerRunning,
+    notificationRunning,
+    inboxRunning,
+    outboundRunning,
+  });
+}, heartbeatIntervalMs);
 
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
   if (shuttingDown) {
@@ -152,13 +231,17 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
 
   clearInterval(notificationTimer);
 
+  clearInterval(inboxTimer);
+
+  clearInterval(outboundTimer);
+
   clearInterval(heartbeatTimer);
 
   log('service.stopping', {
     signal,
   });
 
-  while (schedulerRunning || notificationRunning) {
+  while (schedulerRunning || notificationRunning || inboxRunning || outboundRunning) {
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 50);
     });

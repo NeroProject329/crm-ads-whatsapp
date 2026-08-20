@@ -1,4 +1,4 @@
-﻿import type { AuthenticatedPrincipal, Role } from '@crm/auth';
+import type { AuthenticatedPrincipal, Role } from '@crm/auth';
 
 export type PermissionCode =
   | 'organization.read'
@@ -23,7 +23,11 @@ export type PermissionCode =
   | 'ads_request.read'
   | 'ads_request.manage'
   | 'ads_queue.read'
-  | 'ads_queue.manage';
+  | 'ads_queue.manage'
+  | 'inbox.read'
+  | 'inbox.manage'
+  | 'quick_reply.read'
+  | 'quick_reply.manage';
 
 export type AuthorizationContext = Readonly<{
   permissions: readonly PermissionCode[];

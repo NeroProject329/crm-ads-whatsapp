@@ -1,4 +1,4 @@
-﻿import { config } from 'dotenv';
+import { config } from 'dotenv';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -23,10 +23,14 @@ const expectedPermissionCodes = [
   'domain.read',
   'employee.manage',
   'employee.read',
+  'inbox.manage',
+  'inbox.read',
   'organization.manage',
   'organization.read',
   'profile.read',
   'profile.update',
+  'quick_reply.manage',
+  'quick_reply.read',
   'site.manage',
   'site.read',
   'team.manage',
@@ -44,8 +48,11 @@ const expectedEmployeePermissionCodes = [
   'ads_request.manage',
   'ads_request.read',
   'domain.read',
+  'inbox.manage',
+  'inbox.read',
   'profile.read',
   'profile.update',
+  'quick_reply.read',
   'site.read',
   'traffic_pool.read',
   'whatsapp_number.read',
@@ -202,17 +209,17 @@ async function verifySeed(): Promise<void> {
 
   assert(
     JSON.stringify(permissionCodes) === JSON.stringify(expectedPermissionCodes),
-    'Permission catalog does not match the Stage 4 seed.',
+    'Permission catalog does not match the Stage 9 seed.',
   );
 
   assert(
     JSON.stringify(adminPermissionCodes) === JSON.stringify(expectedPermissionCodes),
-    'ADMIN must receive every Stage 4 permission.',
+    'ADMIN must receive every Stage 9 permission.',
   );
 
   assert(
     JSON.stringify(employeePermissionCodes) === JSON.stringify(expectedEmployeePermissionCodes),
-    'EMPLOYEE permissions do not match Stage 4.',
+    'EMPLOYEE permissions do not match Stage 9.',
   );
 
   console.log(

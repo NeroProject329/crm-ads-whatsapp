@@ -172,7 +172,11 @@ export class AccessTokenGuard implements CanActivate {
       value === 'ads_request.read' ||
       value === 'ads_request.manage' ||
       value === 'ads_queue.read' ||
-      value === 'ads_queue.manage'
+      value === 'ads_queue.manage' ||
+      value === 'inbox.read' ||
+      value === 'inbox.manage' ||
+      value === 'quick_reply.read' ||
+      value === 'quick_reply.manage'
     );
   }
 

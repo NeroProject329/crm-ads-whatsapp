@@ -16,6 +16,8 @@ import { AdsModule } from './ads/ads.module.js';
 
 import { NotificationsModule } from './notifications/notifications.module.js';
 
+import { InboxModule } from './inbox/inbox.module.js';
+
 @Module({
   controllers: [HealthController],
 
@@ -27,6 +29,7 @@ import { NotificationsModule } from './notifications/notifications.module.js';
     TrafficPoolsModule,
     AdsModule,
     NotificationsModule,
+    InboxModule,
   ],
 })
 export class AppModule {}

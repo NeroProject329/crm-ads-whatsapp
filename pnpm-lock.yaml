@@ -141,6 +141,9 @@ importers:
       '@crm/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@crm/meta-cloud-api':
+        specifier: workspace:*
+        version: link:../../packages/meta-cloud-api
       dotenv:
         specifier: 17.4.2
         version: 17.4.2

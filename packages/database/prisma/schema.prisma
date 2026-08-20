@@ -163,6 +163,43 @@ enum MetaWebhookStatus {
   FAILED
 }
 
+enum WhatsAppConversationStatus {
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+enum WhatsAppMessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum WhatsAppMessageType {
+  TEXT
+  TEMPLATE
+  IMAGE
+  AUDIO
+  VIDEO
+  DOCUMENT
+  STICKER
+  LOCATION
+  CONTACTS
+  INTERACTIVE
+  REACTION
+  UNKNOWN
+}
+
+enum WhatsAppMessageStatus {
+  RECEIVED
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  DELETED
+}
+
 model Organization {
   id        String             @id @default(uuid()) @db.Uuid
   name      String             @db.VarChar(160)
@@ -200,6 +237,12 @@ model Organization {
   notificationDeliveries  NotificationDelivery[]
 
   metaWebhookEnvelopes MetaWebhookEnvelope[]
+
+  whatsAppContacts            WhatsAppContact[]
+  whatsAppConversations       WhatsAppConversation[]
+  whatsAppMessages            WhatsAppMessage[]
+  whatsAppMessageStatusEvents WhatsAppMessageStatusEvent[]
+  whatsAppQuickReplies        WhatsAppQuickReply[]
 
   @@index([status])
   @@map("organizations")
@@ -280,6 +323,8 @@ model Employee {
   adsQueueItems   AdsQueueItem[]
 
   adsMicrobatches AdsMicrobatch[]
+
+  assignedWhatsAppConversations WhatsAppConversation[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, userId])
@@ -560,6 +605,10 @@ model WhatsAppNumber {
 
   metaWebhookEnvelopes MetaWebhookEnvelope[]
 
+  inboxConversations       WhatsAppConversation[]
+  inboxMessages            WhatsAppMessage[]
+  inboxMessageStatusEvents WhatsAppMessageStatusEvent[]
+
   @@unique([organizationId, id])
   @@index([organizationId, assignedEmployeeId, status])
   @@index([organizationId, status])
@@ -591,12 +640,154 @@ model MetaWebhookEnvelope {
   organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   whatsAppNumber WhatsAppNumber? @relation(fields: [whatsAppNumberId], references: [id], onDelete: SetNull)
 
+  inboxMessages            WhatsAppMessage[]
+  inboxMessageStatusEvents WhatsAppMessageStatusEvent[]
+
   @@index([organizationId, status, availableAt])
   @@index([organizationId, whatsAppNumberId, receivedAt])
   @@index([metaPhoneNumberId, receivedAt])
   @@index([status, leaseExpiresAt])
   @@index([receivedAt])
   @@map("meta_webhook_envelopes")
+}
+
+model WhatsAppContact {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  waId           String    @db.VarChar(64)
+  profileName    String?   @db.VarChar(160)
+  lastInboundAt  DateTime? @db.Timestamptz(3)
+  lastOutboundAt DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization  Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  conversations WhatsAppConversation[]
+  messages      WhatsAppMessage[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, waId])
+  @@index([organizationId, profileName])
+  @@index([organizationId, lastInboundAt])
+  @@map("whatsapp_contacts")
+}
+
+model WhatsAppConversation {
+  id                             String                     @id @default(uuid()) @db.Uuid
+  organizationId                 String                     @db.Uuid
+  whatsAppNumberId               String                     @db.Uuid
+  contactId                      String                     @db.Uuid
+  assignedEmployeeId             String?                    @db.Uuid
+  status                         WhatsAppConversationStatus @default(OPEN)
+  customerServiceWindowExpiresAt DateTime?                  @db.Timestamptz(3)
+  lastMessageAt                  DateTime?                  @db.Timestamptz(3)
+  lastInboundAt                  DateTime?                  @db.Timestamptz(3)
+  lastOutboundAt                 DateTime?                  @db.Timestamptz(3)
+  unreadCount                    Int                        @default(0)
+  createdAt                      DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt                      DateTime                   @updatedAt @db.Timestamptz(3)
+
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  whatsAppNumber   WhatsAppNumber    @relation(fields: [organizationId, whatsAppNumberId], references: [organizationId, id], onDelete: Restrict)
+  contact          WhatsAppContact   @relation(fields: [organizationId, contactId], references: [organizationId, id], onDelete: Restrict)
+  assignedEmployee Employee?         @relation(fields: [organizationId, assignedEmployeeId], references: [organizationId, id], onDelete: Restrict)
+  messages         WhatsAppMessage[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, whatsAppNumberId, contactId])
+  @@index([organizationId, assignedEmployeeId, status, lastMessageAt])
+  @@index([organizationId, whatsAppNumberId, status, lastMessageAt])
+  @@index([organizationId, status, lastMessageAt])
+  @@map("whatsapp_conversations")
+}
+
+model WhatsAppMessage {
+  id                   String                   @id @default(uuid()) @db.Uuid
+  organizationId       String                   @db.Uuid
+  conversationId       String                   @db.Uuid
+  whatsAppNumberId     String                   @db.Uuid
+  contactId            String                   @db.Uuid
+  sourceEnvelopeId     String?                  @db.Uuid
+  direction            WhatsAppMessageDirection
+  type                 WhatsAppMessageType
+  status               WhatsAppMessageStatus
+  metaMessageId        String?                  @unique @db.VarChar(255)
+  clientMessageId      String?                  @unique @db.Uuid
+  replyToMetaMessageId String?                  @db.VarChar(255)
+  textBody             String?                  @db.Text
+  content              Json
+  providerTimestamp    DateTime?                @db.Timestamptz(3)
+  errorCode            String?                  @db.VarChar(80)
+  errorMessage         String?                  @db.VarChar(500)
+  queuedAt             DateTime?                @db.Timestamptz(3)
+  sentAt               DateTime?                @db.Timestamptz(3)
+  deliveredAt          DateTime?                @db.Timestamptz(3)
+  readAt               DateTime?                @db.Timestamptz(3)
+  failedAt             DateTime?                @db.Timestamptz(3)
+  availableAt          DateTime                 @default(now()) @db.Timestamptz(3)
+  attempts             Int                      @default(0)
+  claimedAt            DateTime?                @db.Timestamptz(3)
+  claimedByWorkerId    String?                  @db.VarChar(120)
+  leaseExpiresAt       DateTime?                @db.Timestamptz(3)
+  lastAttemptAt        DateTime?                @db.Timestamptz(3)
+  createdAt            DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                 @updatedAt @db.Timestamptz(3)
+
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  conversation   WhatsAppConversation @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Cascade)
+  whatsAppNumber WhatsAppNumber       @relation(fields: [organizationId, whatsAppNumberId], references: [organizationId, id], onDelete: Restrict)
+  contact        WhatsAppContact      @relation(fields: [organizationId, contactId], references: [organizationId, id], onDelete: Restrict)
+  sourceEnvelope MetaWebhookEnvelope? @relation(fields: [sourceEnvelopeId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, conversationId, createdAt])
+  @@index([organizationId, whatsAppNumberId, createdAt])
+  @@index([organizationId, direction, status, availableAt])
+  @@index([status, leaseExpiresAt])
+  @@map("whatsapp_messages")
+}
+
+model WhatsAppMessageStatusEvent {
+  id                String                @id @default(uuid()) @db.Uuid
+  organizationId    String                @db.Uuid
+  whatsAppNumberId  String                @db.Uuid
+  sourceEnvelopeId  String?               @db.Uuid
+  metaMessageId     String                @db.VarChar(255)
+  status            WhatsAppMessageStatus
+  recipientWaId     String?               @db.VarChar(64)
+  providerTimestamp DateTime              @db.Timestamptz(3)
+  errors            Json?
+  payload           Json
+  appliedAt         DateTime?             @db.Timestamptz(3)
+  createdAt         DateTime              @default(now()) @db.Timestamptz(3)
+
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  whatsAppNumber WhatsAppNumber       @relation(fields: [organizationId, whatsAppNumberId], references: [organizationId, id], onDelete: Restrict)
+  sourceEnvelope MetaWebhookEnvelope? @relation(fields: [sourceEnvelopeId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, metaMessageId, status, providerTimestamp])
+  @@index([organizationId, metaMessageId, providerTimestamp])
+  @@index([organizationId, whatsAppNumberId, providerTimestamp])
+  @@index([appliedAt, createdAt])
+  @@map("whatsapp_message_status_events")
+}
+
+model WhatsAppQuickReply {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  title          String    @db.VarChar(120)
+  shortcut       String    @db.VarChar(80)
+  body           String    @db.Text
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt      DateTime? @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, shortcut])
+  @@index([organizationId, deletedAt, title])
+  @@map("whatsapp_quick_replies")
 }
 
 model TrafficPool {

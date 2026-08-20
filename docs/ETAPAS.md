@@ -2,21 +2,21 @@
 
 Ao final da Etapa 13, os documentos produzidos serão consolidados em um único documento mestre de implementação.
 
-| Etapa | Escopo                                    | Estado                      |
-| ----: | ----------------------------------------- | --------------------------- |
-|     1 | Fundação do monorepo                      | CONCLUÍDA                   |
-|     2 | Identidade, organização e banco inicial   | EM ANDAMENTO — 2A concluída |
-|     3 | Sites, domínios, números e Traffic Pools  | NÃO INICIADA                |
-|     4 | Pedidos e fila de ADS                     | CONCLUÃDA                   |
-|     5 | Scheduler, microlotes e backpressure      | CONCLUÃDA                   |
-|     6 | Monitoramento de sites                    | CONCLUÃDA                   |
-|     7 | PWA e OneSignal                           | CONCLUÃDA                   |
-|     8 | Fundação da Meta Cloud API                | NÃO INICIADA                |
-|     9 | Caixa de atendimento                      | NÃO INICIADA                |
-|    10 | Leads únicos e atribuição                 | NÃO INICIADA                |
-|    11 | Saúde, incidentes e contingência          | NÃO INICIADA                |
-|    12 | Segurança, staging e produção             | NÃO INICIADA                |
-|    13 | Corte operacional e desativação do legado | NÃO INICIADA                |
+| Etapa | Escopo                                    | Estado       |
+| ----: | ----------------------------------------- | ------------ |
+|     1 | Fundação do monorepo                      | CONCLUIDA    |
+|     2 | Identidade, organização e banco inicial   | CONCLUIDA    |
+|     3 | Sites, domínios, números e Traffic Pools  | CONCLUIDA    |
+|     4 | Pedidos e fila de ADS                     | CONCLUIDA    |
+|     5 | Scheduler, microlotes e backpressure      | CONCLUIDA    |
+|     6 | Monitoramento de sites                    | CONCLUIDA    |
+|     7 | PWA e OneSignal                           | CONCLUIDA    |
+|     8 | Fundação da Meta Cloud API                | CONCLUIDA    |
+|     9 | Caixa de atendimento                      | CONCLUIDA    |
+|    10 | Leads únicos e atribuição                 | NÃO INICIADA |
+|    11 | Saúde, incidentes e contingência          | NÃO INICIADA |
+|    12 | Segurança, staging e produção             | NÃO INICIADA |
+|    13 | Corte operacional e desativação do legado | NÃO INICIADA |
 
 ## Histórico
 
@@ -165,3 +165,33 @@ Documentacao:
 - docs/DECISOES_ETAPA_8.md
 
 Proxima: Etapa 9 - Inbox.
+
+## Etapa 9 - Inbox
+
+Status: CONCLUIDA.
+
+Implementado:
+
+- WhatsAppContact
+- WhatsAppConversation
+- WhatsAppMessage
+- WhatsAppMessageStatusEvent
+- WhatsAppQuickReply
+- inbound webhook processor
+- wamid idempotency
+- customer service window 24h
+- employee assignment
+- persistent outbound queue
+- Meta text/template outbound
+- status reconciliation
+- quick replies
+- claim/lease/recovery
+- retry protection
+- tenant isolation
+
+Documentacao:
+
+- docs/ETAPA_9_WHATSAPP_INBOX.md
+- docs/DECISOES_ETAPA_9.md
+
+Proxima: Etapa 10 - Leads unicos e atribuicao.
