@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 
 export const nonEmptyIdSchema = z.string().trim().min(1);
 
@@ -185,6 +185,8 @@ export const createSiteDomainSchema = z.object({
   hostname: hostnameSchema,
 
   isPrimary: z.boolean().default(false),
+
+  monitoringEnabled: z.boolean().default(true),
 });
 
 export const updateSiteDomainSchema = z
@@ -192,6 +194,8 @@ export const updateSiteDomainSchema = z
     hostname: hostnameSchema.optional(),
 
     isPrimary: z.boolean().optional(),
+
+    monitoringEnabled: z.boolean().optional(),
 
     status: domainStatusSchema.optional(),
   })

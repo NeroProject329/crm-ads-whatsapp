@@ -298,6 +298,38 @@ export class AdsSchedulerService {
         return 'DEFERRED';
       }
 
+      const primaryDomain = await transaction.siteDomain.findFirst({
+        where: {
+          organizationId: queueItem.organizationId,
+
+          siteId: queueItem.trafficPool.site.id,
+
+          isPrimary: true,
+          status: 'ACTIVE',
+          deletedAt: null,
+        },
+
+        include: {
+          monitorState: true,
+        },
+      });
+
+      if (
+        primaryDomain?.monitoringEnabled === true &&
+        primaryDomain.monitorState?.status === 'DOWN'
+      ) {
+        await this.deferClaimedQueueItem(
+          transaction,
+          queueItem.id,
+          queueItem.organizationId,
+          request.id,
+          now,
+          this.config.backpressureDelayMs,
+          'ads_queue.site_down',
+        );
+
+        return 'DEFERRED';
+      }
       const eligibleMembers = await transaction.trafficPoolMember.findMany({
         where: {
           organizationId: queueItem.organizationId,

@@ -7,9 +7,9 @@ Ao final da Etapa 13, os documentos produzidos serão consolidados em um único 
 |     1 | Fundação do monorepo                      | CONCLUÍDA                   |
 |     2 | Identidade, organização e banco inicial   | EM ANDAMENTO — 2A concluída |
 |     3 | Sites, domínios, números e Traffic Pools  | NÃO INICIADA                |
-|     4 | Pedidos e fila de ADS                     | NÃO INICIADA                |
-|     5 | Scheduler, microlotes e backpressure      | NÃO INICIADA                |
-|     6 | Monitoramento de sites                    | NÃO INICIADA                |
+|     4 | Pedidos e fila de ADS                     | CONCLUÃDA                   |
+|     5 | Scheduler, microlotes e backpressure      | CONCLUÃDA                   |
+|     6 | Monitoramento de sites                    | CONCLUÃDA                   |
 |     7 | PWA e OneSignal                           | NÃO INICIADA                |
 |     8 | Fundação da Meta Cloud API                | NÃO INICIADA                |
 |     9 | Caixa de atendimento                      | NÃO INICIADA                |
@@ -79,3 +79,31 @@ Documentacao:
 - docs/DECISOES_ETAPA_5.md
 
 Proxima: Etapa 6 - Site Monitoring.
+
+## Etapa 6 - Site Monitoring
+
+Status: CONCLUIDA.
+
+Implementado:
+
+- SiteMonitorState
+- SiteMonitorCheck
+- SiteMonitorIncident
+- UNKNOWN / HEALTHY / DEGRADED / DOWN
+- HTTPS monitoring
+- SSRF protection
+- failure and recovery thresholds
+- incident lifecycle
+- historical checks
+- claim and lease
+- multi-worker safety
+- scheduler DOWN gate
+- automatic scheduler recovery
+- monitoring API
+
+Documentacao:
+
+- docs/ETAPA_6_SITE_MONITORING.md
+- docs/DECISOES_ETAPA_6.md
+
+Proxima: Etapa 7 - PWA e OneSignal.

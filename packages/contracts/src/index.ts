@@ -1,4 +1,4 @@
-﻿export type HealthStatus = 'ok' | 'degraded' | 'error';
+export type HealthStatus = 'ok' | 'degraded' | 'error';
 
 export type HealthPayload = Readonly<{
   service: string;
@@ -82,6 +82,7 @@ export type SiteDomainResponse = Readonly<{
   hostname: string;
   isPrimary: boolean;
   status: SiteDomainStatus;
+  monitoringEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }>;
@@ -128,11 +129,13 @@ export type UpdateSiteRequest = Readonly<{
 export type CreateSiteDomainRequest = Readonly<{
   hostname: string;
   isPrimary?: boolean;
+  monitoringEnabled?: boolean;
 }>;
 
 export type UpdateSiteDomainRequest = Readonly<{
   hostname?: string;
   isPrimary?: boolean;
+  monitoringEnabled?: boolean;
 
   status?: SiteDomainStatus;
 }>;
@@ -190,3 +193,4 @@ export type UpdateWhatsAppNumberRequest = Readonly<{
 export * from './traffic-pool.js';
 
 export * from './ads.js';
+export * from './site-monitoring.js';

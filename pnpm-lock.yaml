@@ -81,7 +81,14 @@ importers:
         specifier: 7.8.2
         version: 7.8.2
 
-  apps/site-monitor-worker: {}
+  apps/site-monitor-worker:
+    dependencies:
+      '@crm/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      dotenv:
+        specifier: 17.4.2
+        version: 17.4.2
 
   apps/web:
     dependencies:

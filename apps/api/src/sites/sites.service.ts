@@ -317,6 +317,8 @@ export class SitesService {
             hostname: input.hostname,
 
             isPrimary: input.isPrimary,
+
+            monitoringEnabled: input.monitoringEnabled === true,
           },
         });
 
@@ -430,9 +432,16 @@ export class SitesService {
             ...(input.isPrimary !== undefined
               ? {
                   isPrimary: input.isPrimary,
+
+                  monitoringEnabled: input.monitoringEnabled === true,
                 }
               : {}),
 
+            ...(input.monitoringEnabled !== undefined
+              ? {
+                  monitoringEnabled: input.monitoringEnabled === true,
+                }
+              : {}),
             ...(input.status !== undefined
               ? {
                   status: input.status,
@@ -667,6 +676,8 @@ export class SitesService {
       isPrimary: domain.isPrimary,
 
       status: domain.status,
+
+      monitoringEnabled: domain.monitoringEnabled,
 
       createdAt: domain.createdAt.toISOString(),
 

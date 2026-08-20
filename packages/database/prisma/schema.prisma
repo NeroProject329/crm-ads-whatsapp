@@ -62,6 +62,23 @@ enum SiteDomainStatus {
   ARCHIVED
 }
 
+enum SiteMonitorStatus {
+  UNKNOWN
+  HEALTHY
+  DEGRADED
+  DOWN
+}
+
+enum SiteMonitorCheckOutcome {
+  SUCCESS
+  FAILURE
+}
+
+enum SiteMonitorIncidentStatus {
+  OPEN
+  RESOLVED
+}
+
 enum WhatsAppNumberStatus {
   ACTIVE
   PAUSED
@@ -131,6 +148,10 @@ model Organization {
 
   trafficPoolSchedulerStates TrafficPoolSchedulerState[]
   adsMicrobatches            AdsMicrobatch[]
+
+  siteMonitorStates    SiteMonitorState[]
+  siteMonitorChecks    SiteMonitorCheck[]
+  siteMonitorIncidents SiteMonitorIncident[]
 
   @@index([status])
   @@map("organizations")
@@ -335,6 +356,10 @@ model Site {
   trafficPools  TrafficPool[]
   adsRequests   AdsRequest[]
 
+  monitorStates    SiteMonitorState[]
+  monitorChecks    SiteMonitorCheck[]
+  monitorIncidents SiteMonitorIncident[]
+
   @@unique([organizationId, id])
   @@unique([organizationId, slug])
   @@index([organizationId, ownerEmployeeId, status])
@@ -355,10 +380,104 @@ model SiteDomain {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   site         Site         @relation(fields: [organizationId, siteId], references: [organizationId, id], onDelete: Restrict)
 
+  monitoringEnabled Boolean @default(true)
+
+  monitorState     SiteMonitorState?
+  monitorChecks    SiteMonitorCheck[]
+  monitorIncidents SiteMonitorIncident[]
+
   @@unique([organizationId, id])
   @@index([organizationId, siteId, status])
   @@index([organizationId, isPrimary])
   @@map("site_domains")
+}
+
+model SiteMonitorState {
+  id                   String            @id @default(uuid()) @db.Uuid
+  organizationId       String            @db.Uuid
+  siteId               String            @db.Uuid
+  siteDomainId         String            @db.Uuid
+  status               SiteMonitorStatus @default(UNKNOWN)
+  consecutiveFailures  Int               @default(0)
+  consecutiveSuccesses Int               @default(0)
+  lastCheckedAt        DateTime?         @db.Timestamptz(3)
+  lastSuccessAt        DateTime?         @db.Timestamptz(3)
+  lastFailureAt        DateTime?         @db.Timestamptz(3)
+  lastHttpStatus       Int?
+  lastLatencyMs        Int?
+  lastResolvedAddress  String?           @db.VarChar(80)
+  lastFailureCode      String?           @db.VarChar(80)
+  lastFailureMessage   String?           @db.VarChar(500)
+  downSince            DateTime?         @db.Timestamptz(3)
+  recoveredAt          DateTime?         @db.Timestamptz(3)
+  nextCheckAt          DateTime          @default(now()) @db.Timestamptz(3)
+  claimedAt            DateTime?         @db.Timestamptz(3)
+  claimedByWorkerId    String?           @db.VarChar(120)
+  leaseExpiresAt       DateTime?         @db.Timestamptz(3)
+  createdAt            DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime          @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  site         Site         @relation(fields: [organizationId, siteId], references: [organizationId, id], onDelete: Cascade)
+  siteDomain   SiteDomain   @relation(fields: [organizationId, siteDomainId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, siteDomainId])
+  @@index([organizationId, status, nextCheckAt])
+  @@index([organizationId, leaseExpiresAt])
+  @@index([siteId, status])
+  @@map("site_monitor_states")
+}
+
+model SiteMonitorCheck {
+  id              String                  @id @default(uuid()) @db.Uuid
+  organizationId  String                  @db.Uuid
+  siteId          String                  @db.Uuid
+  siteDomainId    String                  @db.Uuid
+  outcome         SiteMonitorCheckOutcome
+  statusBefore    SiteMonitorStatus
+  statusAfter     SiteMonitorStatus
+  httpStatus      Int?
+  latencyMs       Int?
+  resolvedAddress String?                 @db.VarChar(80)
+  failureCode     String?                 @db.VarChar(80)
+  failureMessage  String?                 @db.VarChar(500)
+  checkedAt       DateTime                @default(now()) @db.Timestamptz(3)
+  createdAt       DateTime                @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  site         Site         @relation(fields: [organizationId, siteId], references: [organizationId, id], onDelete: Cascade)
+  siteDomain   SiteDomain   @relation(fields: [organizationId, siteDomainId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, siteDomainId, checkedAt])
+  @@index([organizationId, siteId, checkedAt])
+  @@index([organizationId, outcome, checkedAt])
+  @@map("site_monitor_checks")
+}
+
+model SiteMonitorIncident {
+  id                  String                    @id @default(uuid()) @db.Uuid
+  organizationId      String                    @db.Uuid
+  siteId              String                    @db.Uuid
+  siteDomainId        String                    @db.Uuid
+  status              SiteMonitorIncidentStatus @default(OPEN)
+  openedAt            DateTime                  @default(now()) @db.Timestamptz(3)
+  resolvedAt          DateTime?                 @db.Timestamptz(3)
+  openedAfterFailures Int
+  lastFailureCode     String?                   @db.VarChar(80)
+  lastFailureMessage  String?                   @db.VarChar(500)
+  createdAt           DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime                  @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  site         Site         @relation(fields: [organizationId, siteId], references: [organizationId, id], onDelete: Cascade)
+  siteDomain   SiteDomain   @relation(fields: [organizationId, siteDomainId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, siteDomainId, status, openedAt])
+  @@index([organizationId, siteId, status])
+  @@map("site_monitor_incidents")
 }
 
 model WhatsAppNumber {
