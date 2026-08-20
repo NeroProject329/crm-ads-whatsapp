@@ -10,7 +10,7 @@ Ao final da Etapa 13, os documentos produzidos serão consolidados em um único 
 |     4 | Pedidos e fila de ADS                     | CONCLUÃDA                   |
 |     5 | Scheduler, microlotes e backpressure      | CONCLUÃDA                   |
 |     6 | Monitoramento de sites                    | CONCLUÃDA                   |
-|     7 | PWA e OneSignal                           | NÃO INICIADA                |
+|     7 | PWA e OneSignal                           | CONCLUÃDA                   |
 |     8 | Fundação da Meta Cloud API                | NÃO INICIADA                |
 |     9 | Caixa de atendimento                      | NÃO INICIADA                |
 |    10 | Leads únicos e atribuição                 | NÃO INICIADA                |
@@ -107,3 +107,33 @@ Documentacao:
 - docs/DECISOES_ETAPA_6.md
 
 Proxima: Etapa 7 - PWA e OneSignal.
+
+## Etapa 7 - PWA + OneSignal
+
+Status: CONCLUIDA.
+
+Implementado:
+
+- PWA instalavel
+- zero cache offline autenticado
+- OneSignal Web SDK v16
+- dedicated OneSignal service worker
+- external_id por User.id
+- PushDevice multi-device
+- NotificationPreference
+- Notification
+- NotificationDelivery
+- register/unregister device
+- persistent dispatcher
+- claim e lease
+- exponential retry
+- concurrent idempotency
+- tenant isolation
+- provider mock validation
+
+Documentacao:
+
+- docs/ETAPA_7_PWA_ONESIGNAL.md
+- docs/DECISOES_ETAPA_7.md
+
+Proxima: Etapa 8 - Fundacao da Meta Cloud API.

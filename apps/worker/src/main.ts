@@ -1,11 +1,19 @@
 import './load-environment.js';
 
 import { randomUUID } from 'node:crypto';
+
 import { hostname } from 'node:os';
 
 import { createDatabaseClient } from '@crm/database';
 
 import { AdsSchedulerService } from './ads-scheduler.service.js';
+
+import { NotificationDispatcherService } from './notification-dispatcher.service.js';
+
+import {
+  isNotificationDispatcherEnabled,
+  parseNotificationDispatcherConfig,
+} from './notification-dispatcher.config.js';
 
 import { parseAdsSchedulerConfig } from './scheduler.config.js';
 
@@ -13,16 +21,27 @@ const service = 'worker' as const;
 
 const heartbeatIntervalMs = 30_000;
 
-const config = parseAdsSchedulerConfig();
+const schedulerConfig = parseAdsSchedulerConfig();
+
+const notificationConfig = parseNotificationDispatcherConfig();
 
 const workerId =
   process.env.ADS_WORKER_ID?.trim() || `${hostname()}-${process.pid}-${randomUUID()}`;
 
 const database = createDatabaseClient();
 
-const scheduler = new AdsSchedulerService(database, workerId, config);
+const scheduler = new AdsSchedulerService(database, workerId, schedulerConfig);
+
+const notificationDispatcher = new NotificationDispatcherService(
+  database,
+  workerId,
+  notificationConfig,
+);
 
 let schedulerRunning = false;
+
+let notificationRunning = false;
+
 let shuttingDown = false;
 
 function log(event: string, extra: Record<string, unknown> = {}): void {
@@ -59,25 +78,68 @@ async function runSchedulerTick(): Promise<void> {
   }
 }
 
+async function runNotificationTick(): Promise<void> {
+  if (notificationRunning || shuttingDown) {
+    return;
+  }
+
+  notificationRunning = true;
+
+  try {
+    const summary = await notificationDispatcher.runTick();
+
+    if (summary.claimed > 0 || summary.failed > 0) {
+      log('notification.dispatch.tick', summary);
+    }
+  } catch (error) {
+    log('notification.dispatch.error', {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  } finally {
+    notificationRunning = false;
+  }
+}
+
 log('service.started', {
   heartbeatIntervalMs,
-  schedulerIntervalMs: config.intervalMs,
-  microbatchSize: config.microbatchSize,
-  maxInflightPerEmployee: config.maxInflightPerEmployee,
-  leaseMs: config.leaseMs,
+
+  schedulerIntervalMs: schedulerConfig.intervalMs,
+
+  microbatchSize: schedulerConfig.microbatchSize,
+
+  notificationDispatcherEnabled: isNotificationDispatcherEnabled(notificationConfig),
+
+  notificationIntervalMs: notificationConfig.intervalMs,
 });
 
-await runSchedulerTick();
+await Promise.all([runSchedulerTick(), runNotificationTick()]);
 
-const schedulerTimer = setInterval(() => {
-  void runSchedulerTick();
-}, config.intervalMs);
+const schedulerTimer = setInterval(
+  () => {
+    void runSchedulerTick();
+  },
 
-const heartbeatTimer = setInterval(() => {
-  log('service.heartbeat', {
-    schedulerRunning,
-  });
-}, heartbeatIntervalMs);
+  schedulerConfig.intervalMs,
+);
+
+const notificationTimer = setInterval(
+  () => {
+    void runNotificationTick();
+  },
+
+  notificationConfig.intervalMs,
+);
+
+const heartbeatTimer = setInterval(
+  () => {
+    log('service.heartbeat', {
+      schedulerRunning,
+      notificationRunning,
+    });
+  },
+
+  heartbeatIntervalMs,
+);
 
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
   if (shuttingDown) {
@@ -88,13 +150,15 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
 
   clearInterval(schedulerTimer);
 
+  clearInterval(notificationTimer);
+
   clearInterval(heartbeatTimer);
 
   log('service.stopping', {
     signal,
   });
 
-  while (schedulerRunning) {
+  while (schedulerRunning || notificationRunning) {
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 50);
     });

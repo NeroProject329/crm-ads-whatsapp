@@ -1,4 +1,4 @@
-﻿import { Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 
 import { AuthModule } from './auth/auth.module.js';
 
@@ -14,6 +14,8 @@ import { TrafficPoolsModule } from './traffic-pools/traffic-pools.module.js';
 
 import { AdsModule } from './ads/ads.module.js';
 
+import { NotificationsModule } from './notifications/notifications.module.js';
+
 @Module({
   controllers: [HealthController],
 
@@ -24,6 +26,7 @@ import { AdsModule } from './ads/ads.module.js';
     WhatsAppNumbersModule,
     TrafficPoolsModule,
     AdsModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

@@ -122,6 +122,38 @@ enum AdsMicrobatchStatus {
   FAILED
 }
 
+enum PushProvider {
+  ONESIGNAL
+}
+
+enum PushDeviceStatus {
+  ACTIVE
+  INACTIVE
+  REVOKED
+}
+
+enum NotificationChannel {
+  PUSH
+}
+
+enum NotificationStatus {
+  QUEUED
+  PROCESSING
+  SENT
+  FAILED
+  SKIPPED
+  CANCELLED
+}
+
+enum NotificationDeliveryStatus {
+  WAITING
+  CLAIMED
+  SENT
+  FAILED
+  SKIPPED
+  CANCELLED
+}
+
 model Organization {
   id        String             @id @default(uuid()) @db.Uuid
   name      String             @db.VarChar(160)
@@ -152,6 +184,11 @@ model Organization {
   siteMonitorStates    SiteMonitorState[]
   siteMonitorChecks    SiteMonitorCheck[]
   siteMonitorIncidents SiteMonitorIncident[]
+
+  pushDevices             PushDevice[]
+  notificationPreferences NotificationPreference[]
+  notifications           Notification[]
+  notificationDeliveries  NotificationDelivery[]
 
   @@index([status])
   @@map("organizations")
@@ -199,6 +236,11 @@ model User {
   sessions             Session[]
   auditLogs            AuditLog[]
   requestedAdsRequests AdsRequest[]
+
+  pushDevices            PushDevice[]
+  notificationPreference NotificationPreference?
+  notifications          Notification[]
+  notificationDeliveries NotificationDelivery[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, emailNormalized])
@@ -695,6 +737,111 @@ model AdsMicrobatch {
   @@index([organizationId, whatsAppNumberId, status])
   @@index([organizationId, adsRequestId, status])
   @@map("ads_microbatches")
+}
+
+model PushDevice {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @db.Uuid
+  userId         String           @db.Uuid
+  provider       PushProvider     @default(ONESIGNAL)
+  subscriptionId String           @unique @db.VarChar(160)
+  oneSignalId    String?          @db.VarChar(160)
+  status         PushDeviceStatus @default(ACTIVE)
+  optedIn        Boolean          @default(true)
+  platform       String?          @db.VarChar(80)
+  browser        String?          @db.VarChar(80)
+  deviceLabel    String?          @db.VarChar(120)
+  userAgent      String?          @db.VarChar(500)
+  subscribedAt   DateTime         @default(now()) @db.Timestamptz(3)
+  unsubscribedAt DateTime?        @db.Timestamptz(3)
+  revokedAt      DateTime?        @db.Timestamptz(3)
+  lastSeenAt     DateTime         @default(now()) @db.Timestamptz(3)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime         @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [organizationId, userId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, userId, status])
+  @@index([organizationId, userId, optedIn])
+  @@map("push_devices")
+}
+
+model NotificationPreference {
+  organizationId String   @db.Uuid
+  userId         String   @db.Uuid
+  pushEnabled    Boolean  @default(true)
+  siteMonitoring Boolean  @default(true)
+  adsUpdates     Boolean  @default(true)
+  whatsappInbox  Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [organizationId, userId], references: [organizationId, id], onDelete: Cascade)
+
+  @@id([organizationId, userId])
+  @@map("notification_preferences")
+}
+
+model Notification {
+  id             String              @id @default(uuid()) @db.Uuid
+  organizationId String              @db.Uuid
+  userId         String              @db.Uuid
+  channel        NotificationChannel @default(PUSH)
+  type           String              @db.VarChar(120)
+  title          String              @db.VarChar(160)
+  body           String              @db.VarChar(500)
+  url            String?             @db.VarChar(500)
+  data           Json?
+  idempotencyKey String?             @db.VarChar(160)
+  status         NotificationStatus  @default(QUEUED)
+  processedAt    DateTime?           @db.Timestamptz(3)
+  failureReason  String?             @db.VarChar(500)
+  createdAt      DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime            @updatedAt @db.Timestamptz(3)
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User                   @relation(fields: [organizationId, userId], references: [organizationId, id], onDelete: Cascade)
+  deliveries   NotificationDelivery[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, userId, createdAt])
+  @@index([organizationId, status, createdAt])
+  @@map("notifications")
+}
+
+model NotificationDelivery {
+  id                String                     @id @default(uuid()) @db.Uuid
+  organizationId    String                     @db.Uuid
+  notificationId    String                     @db.Uuid
+  userId            String                     @db.Uuid
+  provider          PushProvider               @default(ONESIGNAL)
+  status            NotificationDeliveryStatus @default(WAITING)
+  attempts          Int                        @default(0)
+  nextAttemptAt     DateTime                   @default(now()) @db.Timestamptz(3)
+  claimedAt         DateTime?                  @db.Timestamptz(3)
+  claimedByWorkerId String?                    @db.VarChar(120)
+  leaseExpiresAt    DateTime?                  @db.Timestamptz(3)
+  providerMessageId String?                    @db.VarChar(160)
+  sentAt            DateTime?                  @db.Timestamptz(3)
+  failedAt          DateTime?                  @db.Timestamptz(3)
+  lastError         String?                    @db.VarChar(500)
+  createdAt         DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime                   @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  notification Notification @relation(fields: [organizationId, notificationId], references: [organizationId, id], onDelete: Cascade)
+  user         User         @relation(fields: [organizationId, userId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, id])
+  @@unique([notificationId, provider])
+  @@index([organizationId, status, nextAttemptAt])
+  @@index([organizationId, userId, status])
+  @@index([leaseExpiresAt])
+  @@map("notification_deliveries")
 }
 
 model AuditLog {

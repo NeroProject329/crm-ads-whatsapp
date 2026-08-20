@@ -248,3 +248,4 @@ export type UpdateWhatsAppNumberInput = z.infer<typeof updateWhatsAppNumberSchem
 export * from './traffic-pool.js';
 
 export * from './ads.js';
+export * from './notifications.js';

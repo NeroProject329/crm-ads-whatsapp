@@ -1,11 +1,37 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
+
 import type { ReactNode } from 'react';
+
+import { OneSignalBootstrap } from '@/components/onesignal-bootstrap';
+
+import { PwaBootstrap } from '@/components/pwa-bootstrap';
 
 import './globals.css';
 
 export const metadata: Metadata = {
-  description: 'CRM greenfield para ADS, números, leads e atendimento WhatsApp.',
   title: 'CRM ADS/WhatsApp',
+
+  description: 'CRM greenfield para ADS, numeros, leads e atendimento WhatsApp.',
+
+  applicationName: 'CRM ADS WhatsApp',
+
+  appleWebApp: {
+    capable: true,
+
+    title: 'CRM',
+
+    statusBarStyle: 'black-translucent',
+  },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+
+  initialScale: 1,
+
+  viewportFit: 'cover',
+
+  themeColor: '#0b0b0b',
 };
 
 type RootLayoutProps = Readonly<{
@@ -15,7 +41,11 @@ type RootLayoutProps = Readonly<{
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        <PwaBootstrap />
+        <OneSignalBootstrap />
+        {children}
+      </body>
     </html>
   );
 }
