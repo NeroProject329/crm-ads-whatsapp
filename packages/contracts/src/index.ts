@@ -161,6 +161,13 @@ export type WhatsAppNumberResponse = Readonly<{
   status: WhatsAppNumberStatus;
 
   notes: string | null;
+  metaWabaId: string | null;
+
+  metaPhoneNumberId: string | null;
+
+  metaConnectedAt: string | null;
+
+  metaWebhookLastSeenAt: string | null;
 
   assignedEmployee: WhatsAppNumberAssigneeResponse | null;
 
@@ -195,3 +202,4 @@ export * from './traffic-pool.js';
 export * from './ads.js';
 export * from './site-monitoring.js';
 export * from './notifications.js';
+export * from './meta-cloud.js';

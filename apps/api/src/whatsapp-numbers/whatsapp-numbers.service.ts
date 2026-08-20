@@ -13,7 +13,11 @@ import type { EmployeeModel, UserModel, WhatsAppNumberModel } from '@crm/databas
 
 import type { WhatsAppNumberListResponse, WhatsAppNumberResponse } from '@crm/contracts';
 
-import type { CreateWhatsAppNumberInput, UpdateWhatsAppNumberInput } from '@crm/validation';
+import type {
+  ConfigureWhatsAppMetaInput,
+  CreateWhatsAppNumberInput,
+  UpdateWhatsAppNumberInput,
+} from '@crm/validation';
 
 import { DatabaseService } from '../database/database.service.js';
 
@@ -263,6 +267,91 @@ export class WhatsAppNumbersService {
     }
   }
 
+  async configureMetaCloud(
+    principal: AuthenticatedPrincipal,
+    numberId: string,
+    input: ConfigureWhatsAppMetaInput,
+  ): Promise<WhatsAppNumberResponse> {
+    await this.getOrganizationNumber(principal.organizationId, numberId);
+
+    const connected = input.wabaId !== null && input.phoneNumberId !== null;
+
+    try {
+      const number = await this.database.client.$transaction(async (transaction) => {
+        const updated = await transaction.whatsAppNumber.update({
+          where: {
+            id: numberId,
+          },
+
+          data: {
+            metaWabaId: input.wabaId,
+
+            metaPhoneNumberId: input.phoneNumberId,
+
+            metaConnectedAt: connected ? new Date() : null,
+
+            ...(!connected
+              ? {
+                  metaWebhookLastSeenAt: null,
+                }
+              : {}),
+          },
+
+          include: {
+            assignedEmployee: {
+              include: {
+                user: {
+                  select: {
+                    displayName: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        await transaction.auditLog.create({
+          data: {
+            organizationId: principal.organizationId,
+
+            actorType: 'USER',
+
+            actorUserId: principal.userId,
+
+            action: connected
+              ? 'whatsapp_number.meta_connected'
+              : 'whatsapp_number.meta_disconnected',
+
+            resourceType: 'whatsapp_number',
+
+            resourceId: updated.id,
+
+            outcome: 'SUCCESS',
+
+            metadata: {
+              wabaId: updated.metaWabaId,
+
+              metaPhoneNumberId: updated.metaPhoneNumberId,
+            },
+          },
+        });
+
+        return updated;
+      });
+
+      return this.mapNumber(number);
+    } catch (error) {
+      if (this.isUniqueConstraintError(error)) {
+        throw new ConflictException({
+          code: 'META_PHONE_NUMBER_ALREADY_CONNECTED',
+
+          message: 'This Meta phone number ID is already connected to another WhatsApp number.',
+        });
+      }
+
+      throw error;
+    }
+  }
   private async getAccessibleNumber(
     principal: AuthenticatedPrincipal,
     numberId: string,
@@ -406,6 +495,14 @@ export class WhatsAppNumbersService {
       status: number.status,
 
       notes: number.notes,
+
+      metaWabaId: number.metaWabaId,
+
+      metaPhoneNumberId: number.metaPhoneNumberId,
+
+      metaConnectedAt: number.metaConnectedAt?.toISOString() ?? null,
+
+      metaWebhookLastSeenAt: number.metaWebhookLastSeenAt?.toISOString() ?? null,
 
       assignedEmployee: number.assignedEmployee
         ? {

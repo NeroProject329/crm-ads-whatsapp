@@ -15,7 +15,11 @@ import type { AuthenticatedPrincipal } from '@crm/auth';
 
 import type { WhatsAppNumberListResponse, WhatsAppNumberResponse } from '@crm/contracts';
 
-import { createWhatsAppNumberSchema, updateWhatsAppNumberSchema } from '@crm/validation';
+import {
+  configureWhatsAppMetaSchema,
+  createWhatsAppNumberSchema,
+  updateWhatsAppNumberSchema,
+} from '@crm/validation';
 
 import { AccessTokenGuard } from '../authorization/access-token.guard.js';
 
@@ -113,5 +117,36 @@ export class WhatsAppNumbersController {
     }
 
     return this.whatsAppNumbersService.update(principal, numberId, parsed.data);
+  }
+
+  @Patch(':numberId/meta-cloud')
+  @RequirePermissions('whatsapp_number.manage')
+  configureMetaCloud(
+    @CurrentPrincipal()
+    principal: AuthenticatedPrincipal,
+
+    @Param('numberId', new ParseUUIDPipe())
+    numberId: string,
+
+    @Body()
+    body: unknown,
+  ): Promise<WhatsAppNumberResponse> {
+    const parsed = configureWhatsAppMetaSchema.safeParse(body);
+
+    if (!parsed.success) {
+      throw new BadRequestException({
+        code: 'WHATSAPP_META_VALIDATION_ERROR',
+
+        message: 'Invalid Meta Cloud API connection payload.',
+
+        issues: parsed.error.issues.map((issue) => ({
+          code: issue.code,
+
+          path: issue.path.join('.'),
+        })),
+      });
+    }
+
+    return this.whatsAppNumbersService.configureMetaCloud(principal, numberId, parsed.data);
   }
 }

@@ -137,3 +137,31 @@ Documentacao:
 - docs/DECISOES_ETAPA_7.md
 
 Proxima: Etapa 8 - Fundacao da Meta Cloud API.
+
+## Etapa 8 - Meta Cloud API
+
+Status: CONCLUIDA.
+
+Implementado:
+
+- @crm/meta-cloud-api
+- Graph API client
+- explicit Graph API version
+- Meta normalized errors
+- webhook verification challenge
+- HMAC SHA-256 raw-body validation
+- MetaWebhookEnvelope
+- SHA-256 webhook deduplication
+- WABA mapping
+- Meta Phone Number ID mapping
+- tenant-safe webhook resolution
+- UNMATCHED and IGNORED handling
+- connect/disconnect API
+- claim/lease foundation for Stage 9
+
+Documentacao:
+
+- docs/ETAPA_8_META_CLOUD_API.md
+- docs/DECISOES_ETAPA_8.md
+
+Proxima: Etapa 9 - Inbox.

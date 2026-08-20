@@ -154,6 +154,15 @@ enum NotificationDeliveryStatus {
   CANCELLED
 }
 
+enum MetaWebhookStatus {
+  RECEIVED
+  CLAIMED
+  PROCESSED
+  UNMATCHED
+  IGNORED
+  FAILED
+}
+
 model Organization {
   id        String             @id @default(uuid()) @db.Uuid
   name      String             @db.VarChar(160)
@@ -189,6 +198,8 @@ model Organization {
   notificationPreferences NotificationPreference[]
   notifications           Notification[]
   notificationDeliveries  NotificationDelivery[]
+
+  metaWebhookEnvelopes MetaWebhookEnvelope[]
 
   @@index([status])
   @@map("organizations")
@@ -542,10 +553,50 @@ model WhatsAppNumber {
 
   adsMicrobatches AdsMicrobatch[]
 
+  metaWabaId            String?   @db.VarChar(64)
+  metaPhoneNumberId     String?   @unique @db.VarChar(64)
+  metaConnectedAt       DateTime? @db.Timestamptz(3)
+  metaWebhookLastSeenAt DateTime? @db.Timestamptz(3)
+
+  metaWebhookEnvelopes MetaWebhookEnvelope[]
+
   @@unique([organizationId, id])
   @@index([organizationId, assignedEmployeeId, status])
   @@index([organizationId, status])
   @@map("whatsapp_numbers")
+}
+
+model MetaWebhookEnvelope {
+  id                String            @id @default(uuid()) @db.Uuid
+  organizationId    String?           @db.Uuid
+  whatsAppNumberId  String?           @db.Uuid
+  object            String?           @db.VarChar(120)
+  field             String?           @db.VarChar(120)
+  wabaId            String?           @db.VarChar(64)
+  metaPhoneNumberId String?           @db.VarChar(64)
+  payloadHash       String            @unique @db.Char(64)
+  payload           Json
+  status            MetaWebhookStatus @default(RECEIVED)
+  receivedAt        DateTime          @default(now()) @db.Timestamptz(3)
+  availableAt       DateTime          @default(now()) @db.Timestamptz(3)
+  attempts          Int               @default(0)
+  claimedAt         DateTime?         @db.Timestamptz(3)
+  claimedByWorkerId String?           @db.VarChar(120)
+  leaseExpiresAt    DateTime?         @db.Timestamptz(3)
+  processedAt       DateTime?         @db.Timestamptz(3)
+  failureReason     String?           @db.VarChar(500)
+  createdAt         DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime          @updatedAt @db.Timestamptz(3)
+
+  organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  whatsAppNumber WhatsAppNumber? @relation(fields: [whatsAppNumberId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, availableAt])
+  @@index([organizationId, whatsAppNumberId, receivedAt])
+  @@index([metaPhoneNumberId, receivedAt])
+  @@index([status, leaseExpiresAt])
+  @@index([receivedAt])
+  @@map("meta_webhook_envelopes")
 }
 
 model TrafficPool {

@@ -4,7 +4,7 @@ type HealthResponse = Readonly<{
   service: 'webhook-ingress';
   status: 'ok';
   timestamp: string;
-  version: '0.1.0';
+  version: '0.2.0';
 }>;
 
 @Controller('health')
@@ -15,7 +15,7 @@ export class HealthController {
       service: 'webhook-ingress',
       status: 'ok',
       timestamp: new Date().toISOString(),
-      version: '0.1.0',
+      version: '0.2.0',
     };
   }
 }

@@ -111,6 +111,12 @@ importers:
 
   apps/webhook-ingress:
     dependencies:
+      '@crm/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@crm/meta-cloud-api':
+        specifier: workspace:*
+        version: link:../../packages/meta-cloud-api
       '@nestjs/common':
         specifier: 11.1.28
         version: 11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0)
@@ -120,6 +126,9 @@ importers:
       '@nestjs/platform-express':
         specifier: 11.1.28
         version: 11.1.28(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@11.1.28)(supports-color@7.2.0)
+      dotenv:
+        specifier: 17.4.2
+        version: 17.4.2
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2
@@ -176,6 +185,8 @@ importers:
         version: 7.9.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
 
   packages/domain: {}
+
+  packages/meta-cloud-api: {}
 
   packages/notifications: {}
 
