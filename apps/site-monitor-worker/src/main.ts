@@ -6,11 +6,15 @@ import { hostname } from 'node:os';
 
 import { createDatabaseClient } from '@crm/database';
 
+import { assertServiceProductionReadiness } from '@crm/config';
+
 import { parseSiteMonitorConfig } from './site-monitor.config.js';
 
 import { SiteMonitorService } from './site-monitor.service.js';
 
 const service = 'site-monitor-worker' as const;
+
+assertServiceProductionReadiness('site-monitor-worker');
 
 const heartbeatIntervalMs = 60_000;
 

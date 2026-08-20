@@ -26,6 +26,38 @@ const adminEmail = (process.env.SEED_ADMIN_EMAIL?.trim() || 'admin@example.com')
 const adminName = process.env.SEED_ADMIN_NAME?.trim() || 'Administrador';
 
 const adminEmployeeCode = process.env.SEED_ADMIN_EMPLOYEE_CODE?.trim() || 'ADMIN001';
+const _PRODUCTION_SEED_CONFIGURATION_REQUIRED = true;
+
+const productionSeedEnvironment =
+  process.env.APP_ENV === 'staging' || process.env.APP_ENV === 'production';
+
+if (productionSeedEnvironment) {
+  if (process.env.NODE_ENV !== 'production') {
+    throw new Error('NODE_ENV must be production when seeding staging or production.');
+  }
+
+  const requiredSeedVariables = [
+    'SEED_ORGANIZATION_NAME',
+    'SEED_ORGANIZATION_SLUG',
+    'SEED_TEAM_NAME',
+    'SEED_TEAM_SLUG',
+    'SEED_ADMIN_EMAIL',
+    'SEED_ADMIN_NAME',
+    'SEED_ADMIN_EMPLOYEE_CODE',
+  ] as const;
+
+  for (const variable of requiredSeedVariables) {
+    const value = process.env[variable]?.trim();
+
+    if (!value) {
+      throw new Error(`${variable} is required when seeding staging or production.`);
+    }
+  }
+
+  if (adminEmail.endsWith('@example.com')) {
+    throw new Error('SEED_ADMIN_EMAIL cannot use example.com in staging or production.');
+  }
+}
 
 const permissionDefinitions = [
   ['organization.read', 'Visualizar a organizaÃ§Ã£o'],

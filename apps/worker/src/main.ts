@@ -6,6 +6,8 @@ import { hostname } from 'node:os';
 
 import { createDatabaseClient } from '@crm/database';
 
+import { assertServiceProductionReadiness } from '@crm/config';
+
 import { MetaCloudApiClient, parseMetaCloudApiConfig } from '@crm/meta-cloud-api';
 
 import { AdsSchedulerService } from './ads-scheduler.service.js';
@@ -30,6 +32,8 @@ import { parseWhatsAppNumberHealthConfig } from './whatsapp-number-health.config
 import { WhatsAppNumberHealthSyncService } from './whatsapp-number-health-sync.service.js';
 
 const service = 'worker' as const;
+
+assertServiceProductionReadiness('worker');
 
 const heartbeatIntervalMs = 30_000;
 

@@ -15,7 +15,7 @@ Ao final da Etapa 13, os documentos produzidos serão consolidados em um único 
 |     9 | Caixa de atendimento                      | CONCLUIDA    |
 |    10 | Leads únicos e atribuição                 | CONCLUIDA    |
 |    11 | Saúde, incidentes e contingência          | CONCLUIDA    |
-|    12 | Segurança, staging e produção             | NÃO INICIADA |
+|    12 | Segurança, staging e produção             | CONCLUIDA    |
 |    13 | Corte operacional e desativação do legado | NÃO INICIADA |
 
 ## Histórico
@@ -259,3 +259,36 @@ Documentacao:
 - docs/DECISOES_ETAPA_11.md
 
 Proxima: Etapa 12 - Security hardening, staging e production readiness.
+
+## Etapa 12 - Security Hardening, Staging e Production Readiness
+
+Status: CONCLUIDA.
+
+Implementado:
+
+- HTTP security
+- Helmet
+- strict CORS
+- API throttling
+- auth throttling
+- request size limits
+- request/header timeouts
+- trusted proxy policy
+- API readiness
+- webhook readiness
+- Meta HMAC protection
+- production environment fail-closed
+- production seed fail-closed
+- outbound unknown-outcome safety
+- Next.js baseline headers
+- dependency audit
+- remote deployment verifier
+- staging/production runbook
+
+Documentacao:
+
+- docs/ETAPA_12_SECURITY_HARDENING.md
+- docs/DECISOES_ETAPA_12.md
+- docs/STAGING_PRODUCTION_RUNBOOK.md
+
+Proxima: Etapa 13 - Cutover, release e substituicao controlada.

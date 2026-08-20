@@ -56,6 +56,7 @@ export class WhatsAppOutboundDispatcherService {
   ) {}
 
   async runTick(): Promise<WhatsAppOutboundTickSummary> {
+    await this.failExpiredSendingMessages();
     let claimed = 0;
 
     let sent = 0;
@@ -107,6 +108,94 @@ export class WhatsAppOutboundDispatcherService {
     };
   }
 
+  private async failExpiredSendingMessages(): Promise<void> {
+    const now = new Date();
+
+    const expired = await this.database.whatsAppMessage.findMany({
+      where: {
+        direction: 'OUTBOUND',
+
+        status: 'SENDING',
+
+        metaMessageId: null,
+
+        leaseExpiresAt: {
+          lte: now,
+        },
+      },
+
+      select: {
+        id: true,
+
+        organizationId: true,
+
+        attempts: true,
+      },
+
+      take: 100,
+    });
+
+    for (const message of expired) {
+      const updated = await this.database.whatsAppMessage.updateMany({
+        where: {
+          id: message.id,
+
+          direction: 'OUTBOUND',
+
+          status: 'SENDING',
+
+          metaMessageId: null,
+
+          leaseExpiresAt: {
+            lte: now,
+          },
+        },
+
+        data: {
+          status: 'FAILED',
+
+          failedAt: now,
+
+          errorCode: 'OUTBOUND_DELIVERY_UNKNOWN_AFTER_LEASE',
+
+          errorMessage:
+            'Worker lease expired while provider delivery outcome was unknown. Automatic resend was blocked to prevent duplicate customer messages.',
+
+          claimedAt: null,
+
+          claimedByWorkerId: null,
+
+          leaseExpiresAt: null,
+        },
+      });
+
+      if (updated.count !== 1) {
+        continue;
+      }
+
+      await this.database.auditLog.create({
+        data: {
+          organizationId: message.organizationId,
+
+          actorType: 'SYSTEM',
+
+          action: 'whatsapp.outbound.delivery_unknown_after_lease',
+
+          resourceType: 'whatsapp_message',
+
+          resourceId: message.id,
+
+          outcome: 'FAILURE',
+
+          metadata: {
+            attempts: message.attempts,
+
+            automaticResendBlocked: true,
+          },
+        },
+      });
+    }
+  }
   private async claimNextMessage(): Promise<ClaimedMessage | null> {
     const rows = await this.database.$queryRawUnsafe<ClaimedMessage[]>(
       `
@@ -117,19 +206,8 @@ export class WhatsAppOutboundDispatcherService {
             "whatsapp_messages"
           WHERE
             "direction" = 'OUTBOUND'
-            AND (
-              (
-                "status" = 'QUEUED'
-                AND "availableAt" <= NOW()
-              )
-              OR
-              (
-                "status" = 'SENDING'
-                AND "leaseExpiresAt" IS NOT NULL
-                AND "leaseExpiresAt" <= NOW()
-                AND "metaMessageId" IS NULL
-              )
-            )
+            AND "status" = 'QUEUED'
+            AND "availableAt" <= NOW()
           ORDER BY
             "availableAt" ASC,
             "createdAt" ASC,
