@@ -30,7 +30,7 @@ const navigation: readonly NavigationItem[] = [
   { label: 'Funcionarios', href: '/employees', icon: 'employees', adminOnly: true },
   { label: 'Equipes', href: '/teams', icon: 'teams', adminOnly: true },
   { label: 'Sites', href: '/sites', icon: 'sites' },
-  { label: 'WhatsApp', href: '/inbox', icon: 'inbox', comingSoon: true },
+  { label: 'WhatsApp', href: '/inbox', icon: 'inbox' },
   { label: 'ADS e filas', href: '/ads', icon: 'ads', comingSoon: true },
   { label: 'Leads', href: '/leads', icon: 'leads', comingSoon: true },
   { label: 'Numeros', href: '/numbers', icon: 'numbers', comingSoon: true },
