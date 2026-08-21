@@ -63,7 +63,12 @@ export function DashboardOverview() {
       const activeDomains = domains.filter((domain) => domain.status === 'ACTIVE').length;
 
       return [
-        { label: 'Sites sob sua gestao', value: sites.length, detail: `${activeSites} ativos`, tone: 'blue' },
+        {
+          label: 'Sites vinculados aos seus numeros',
+          value: sites.length,
+          detail: `${activeSites} ativos`,
+          tone: 'blue',
+        },
         { label: 'Dominios', value: domains.length, detail: `${activeDomains} ativos` },
         { label: 'Perfil operacional', value: 1, detail: 'Acesso EMPLOYEE' },
       ];
@@ -116,7 +121,7 @@ export function DashboardOverview() {
           <p>
             {isAdmin
               ? 'Acompanhe pessoas, equipes, sites, numeros e leads antes de entrar nos modulos operacionais.'
-              : 'Acompanhe os recursos vinculados ao seu acesso e entre rapidamente na operacao.'}
+              : 'Acompanhe os recursos vinculados aos seus numeros e entre rapidamente na operacao.'}
           </p>
         </div>
         <div className="f2-hero-status">
@@ -136,7 +141,10 @@ export function DashboardOverview() {
               <div className="f2-metric-card is-loading" key={index} />
             ))
           : metrics.map((metric) => (
-              <article className={`f2-metric-card${metric.tone ? ` ${metric.tone}` : ''}`} key={metric.label}>
+              <article
+                className={`f2-metric-card${metric.tone ? ` ${metric.tone}` : ''}`}
+                key={metric.label}
+              >
                 <span>{metric.label}</span>
                 <strong>{metric.value.toLocaleString('pt-BR')}</strong>
                 <small>{metric.detail}</small>
@@ -150,14 +158,20 @@ export function DashboardOverview() {
           <h2>{isAdmin ? 'Gestao pronta para o dia a dia' : 'Seu acesso esta preparado'}</h2>
           <p>
             {isAdmin
-              ? 'Use Funcionarios e Equipes para organizar a operacao. Sites concentra dominios e responsaveis.'
-              : 'Os proximos modulos vao usar esta mesma sessao para WhatsApp, ADS, leads e numeros.'}
+              ? 'Use Funcionarios e Equipes para organizar a operacao. Sites centraliza dominios e a infraestrutura usada pelos Traffic Pools.'
+              : 'Os sites exibidos aqui sao os que possuem seus numeros nos Traffic Pools. Os proximos modulos usam essa mesma relacao para WhatsApp, ADS e leads.'}
           </p>
         </div>
         <div className="f2-flow-list">
-          <span><b>01</b> Pessoas e equipes</span>
-          <span><b>02</b> Sites e dominios</span>
-          <span><b>03</b> WhatsApp + ADS</span>
+          <span>
+            <b>01</b> Pessoas e equipes
+          </span>
+          <span>
+            <b>02</b> Sites e dominios
+          </span>
+          <span>
+            <b>03</b> WhatsApp + ADS
+          </span>
         </div>
       </section>
     </div>
