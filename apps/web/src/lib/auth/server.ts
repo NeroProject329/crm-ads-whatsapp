@@ -182,6 +182,61 @@ export async function resolveSession(): Promise<AuthUser | null> {
   };
 }
 
+export async function authorizedBackendRequest(
+  path: string,
+  init: RequestInit,
+): Promise<Response> {
+  const store = await cookies();
+  let accessToken = store.get(ACCESS_COOKIE)?.value ?? null;
+  const refreshToken = store.get(REFRESH_COOKIE)?.value ?? null;
+
+  const requestWithToken = (token: string) => {
+    const headers = new Headers(init.headers);
+    headers.set('Authorization', `Bearer ${token}`);
+
+    return backendRequest(path, {
+      ...init,
+      headers,
+    });
+  };
+
+  if (!accessToken && refreshToken) {
+    const refreshed = await refreshSession(refreshToken);
+
+    if (refreshed) {
+      await setAuthCookies(refreshed);
+      accessToken = refreshed.accessToken;
+    }
+  }
+
+  if (!accessToken) {
+    return new Response(
+      JSON.stringify({ code: 'AUTH_ACCESS_DENIED', message: 'Authentication is required.' }),
+      {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
+  }
+
+  let response = await requestWithToken(accessToken);
+
+  if (response.status !== 401 || !refreshToken) {
+    return response;
+  }
+
+  const refreshed = await refreshSession(refreshToken);
+
+  if (!refreshed) {
+    await clearAuthCookies();
+    return response;
+  }
+
+  await setAuthCookies(refreshed);
+  response = await requestWithToken(refreshed.accessToken);
+  return response;
+}
+
 export async function loginWithPassword(input: Readonly<{
   email: string;
   organizationSlug: string;
