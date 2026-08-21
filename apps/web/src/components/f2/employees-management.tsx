@@ -63,7 +63,12 @@ export function EmployeesManagement() {
         crmFetch<readonly ManagedEmployee[]>('/api/management/employees'),
         crmFetch<readonly ManagedTeam[]>('/api/management/teams'),
       ]);
-      setEmployees(employeeData);
+
+      const operationalEmployees = employeeData.filter(
+        (employee) => !employee.roles.includes('ADMIN'),
+      );
+
+      setEmployees(operationalEmployees);
       setTeams(teamData);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Nao foi possivel carregar os funcionarios.');
@@ -106,8 +111,6 @@ export function EmployeesManagement() {
   }
 
   function openEdit(employee: ManagedEmployee) {
-    if (employee.roles.includes('ADMIN')) return;
-
     setEditing(employee);
     setForm({
       displayName: employee.user.displayName,
@@ -116,8 +119,7 @@ export function EmployeesManagement() {
       teamId: employee.team.id,
       password: '',
       employeeStatus: employee.status,
-      userStatus:
-        employee.user.status === 'INVITED' ? 'ACTIVE' : employee.user.status,
+      userStatus: employee.user.status === 'INVITED' ? 'ACTIVE' : employee.user.status,
     });
     setError(null);
     setModalOpen(true);
@@ -172,9 +174,14 @@ export function EmployeesManagement() {
         <div>
           <span className="f2-kicker">GESTAO DE ACESSO</span>
           <h1>Funcionarios</h1>
-          <p>Crie acessos, organize responsaveis por equipe e controle quem pode entrar na operacao.</p>
+          <p>Crie acessos, organize a equipe operacional e controle quem pode entrar na operacao.</p>
         </div>
-        <button className="f2-primary-button" type="button" onClick={openCreate} disabled={teams.length === 0}>
+        <button
+          className="f2-primary-button"
+          type="button"
+          onClick={openCreate}
+          disabled={teams.length === 0}
+        >
           + Novo funcionario
         </button>
       </section>
@@ -192,11 +199,20 @@ export function EmployeesManagement() {
         <div className="f2-toolbar">
           <label className="f2-search">
             <span>⌕</span>
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar nome, e-mail, codigo ou equipe" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar nome, e-mail, codigo ou equipe"
+            />
           </label>
           <div className="f2-segmented">
             {(['ALL', 'ACTIVE', 'INACTIVE'] as const).map((value) => (
-              <button className={filter === value ? 'active' : ''} key={value} type="button" onClick={() => setFilter(value)}>
+              <button
+                className={filter === value ? 'active' : ''}
+                key={value}
+                type="button"
+                onClick={() => setFilter(value)}
+              >
                 {value === 'ALL' ? 'Todos' : value === 'ACTIVE' ? 'Ativos' : 'Inativos'}
               </button>
             ))}
@@ -209,34 +225,39 @@ export function EmployeesManagement() {
           <div className="f2-empty">Nenhum funcionario encontrado.</div>
         ) : (
           <div className="f2-list">
-            {filtered.map((employee) => {
-              const protectedAdmin = employee.roles.includes('ADMIN');
-              return (
-                <article className="f2-person-card" key={employee.id}>
-                  <div className="f2-avatar">{initials(employee.user.displayName)}</div>
-                  <div className="f2-person-main">
-                    <div className="f2-title-line">
-                      <strong>{employee.user.displayName}</strong>
-                      {protectedAdmin ? <span className="f2-role-badge">ADMIN</span> : null}
-                    </div>
-                    <span>{employee.user.email}</span>
+            {filtered.map((employee) => (
+              <article className="f2-person-card" key={employee.id}>
+                <div className="f2-avatar">{initials(employee.user.displayName)}</div>
+                <div className="f2-person-main">
+                  <div className="f2-title-line">
+                    <strong>{employee.user.displayName}</strong>
                   </div>
-                  <div className="f2-meta-cell"><span>Equipe</span><strong>{employee.team.name}</strong></div>
-                  <div className="f2-meta-cell"><span>Codigo</span><strong>{employee.employeeCode}</strong></div>
-                  <span className={`f2-status ${statusLabel(employee).toLowerCase()}`}>{statusLabel(employee)}</span>
-                  <button className="f2-secondary-button" type="button" disabled={protectedAdmin} onClick={() => openEdit(employee)}>
-                    {protectedAdmin ? 'Protegido' : 'Editar'}
-                  </button>
-                </article>
-              );
-            })}
+                  <span>{employee.user.email}</span>
+                </div>
+                <div className="f2-meta-cell"><span>Equipe</span><strong>{employee.team.name}</strong></div>
+                <div className="f2-meta-cell"><span>Codigo</span><strong>{employee.employeeCode}</strong></div>
+                <span className={`f2-status ${statusLabel(employee).toLowerCase()}`}>{statusLabel(employee)}</span>
+                <button className="f2-secondary-button" type="button" onClick={() => openEdit(employee)}>
+                  Editar
+                </button>
+              </article>
+            ))}
           </div>
         )}
       </section>
 
       {modalOpen ? (
-        <div className="f2-modal-backdrop" role="presentation" onMouseDown={() => !saving && setModalOpen(false)}>
-          <section className="f2-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+        <div
+          className="f2-modal-backdrop"
+          role="presentation"
+          onMouseDown={() => !saving && setModalOpen(false)}
+        >
+          <section
+            className="f2-modal"
+            role="dialog"
+            aria-modal="true"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
             <div className="f2-modal-header">
               <div>
                 <span className="f2-kicker">{editing ? 'EDITAR ACESSO' : 'NOVO ACESSO'}</span>
