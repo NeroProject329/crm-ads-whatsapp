@@ -8,6 +8,7 @@ import { PwaBootstrap } from '@/components/pwa-bootstrap';
 import './globals.css';
 import './management-blue-theme.css';
 import './f2-management.css';
+import './f3-inbox.css';
 
 export const metadata: Metadata = {
   title: 'CRM ADS/WhatsApp',
