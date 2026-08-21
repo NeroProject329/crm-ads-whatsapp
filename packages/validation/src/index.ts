@@ -114,7 +114,6 @@ const whatsAppDisplayNameSchema = z.string().trim().min(2).max(120);
 const whatsAppNotesSchema = z.string().trim().max(500).nullable();
 
 export const createSiteSchema = z.object({
-  ownerEmployeeId: uuidSchema,
   name: siteNameSchema,
   slug: siteSlugSchema,
   description: siteDescriptionSchema.optional(),
@@ -122,7 +121,6 @@ export const createSiteSchema = z.object({
 
 export const updateSiteSchema = z
   .object({
-    ownerEmployeeId: uuidSchema.optional(),
     name: siteNameSchema.optional(),
     slug: siteSlugSchema.optional(),
     description: siteDescriptionSchema.optional(),
