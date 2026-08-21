@@ -68,13 +68,6 @@ export type SiteStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
 
 export type SiteDomainStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
 
-export type SiteOwnerResponse = Readonly<{
-  employeeCode: string;
-  employeeId: string;
-  displayName: string;
-  userId: string;
-}>;
-
 export type SiteDomainResponse = Readonly<{
   id: string;
   organizationId: string;
@@ -90,15 +83,12 @@ export type SiteDomainResponse = Readonly<{
 export type SiteResponse = Readonly<{
   id: string;
   organizationId: string;
-  ownerEmployeeId: string;
   name: string;
   slug: string;
 
   description: string | null;
 
   status: SiteStatus;
-
-  owner: SiteOwnerResponse;
 
   domains: readonly SiteDomainResponse[];
 
@@ -109,7 +99,6 @@ export type SiteResponse = Readonly<{
 export type SiteListResponse = readonly SiteResponse[];
 
 export type CreateSiteRequest = Readonly<{
-  ownerEmployeeId: string;
   name: string;
   slug: string;
 
@@ -117,7 +106,6 @@ export type CreateSiteRequest = Readonly<{
 }>;
 
 export type UpdateSiteRequest = Readonly<{
-  ownerEmployeeId?: string;
   name?: string;
   slug?: string;
 
