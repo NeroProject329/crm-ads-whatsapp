@@ -38,7 +38,7 @@ export type ManagedEmployee = Readonly<{
     lastLoginAt: string | null;
     createdAt: string;
   }>;
-  roles: readonly 'EMPLOYEE'[];
+  roles: readonly ('ADMIN' | 'EMPLOYEE')[];
   createdAt: string;
   updatedAt: string;
 }>;
