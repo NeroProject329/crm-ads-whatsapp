@@ -13,7 +13,8 @@ export async function forwardBackendRequest(
 
   const method = request.method.toUpperCase();
   const body = method === 'GET' || method === 'HEAD' ? undefined : await request.arrayBuffer();
-  const response = await authorizedBackendRequest(backendPath, {
+  const search = new URL(request.url).search;
+  const response = await authorizedBackendRequest(`${backendPath}${search}`, {
     method,
     headers,
     ...(body !== undefined ? { body } : {}),
