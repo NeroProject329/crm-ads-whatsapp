@@ -92,14 +92,17 @@ export async function clearAuthCookies(): Promise<void> {
 }
 
 async function backendRequest(path: string, init: RequestInit): Promise<Response> {
+  const headers = new Headers(init.headers);
+  headers.set('Accept', 'application/json');
+
+  if (init.body !== undefined && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
   return fetch(`${apiBaseUrl()}${path}`, {
     ...init,
     cache: 'no-store',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      ...init.headers,
-    },
+    headers,
   });
 }
 
