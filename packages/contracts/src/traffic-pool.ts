@@ -36,8 +36,6 @@ export type TrafficPoolSiteResponse = Readonly<{
   id: string;
   name: string;
   slug: string;
-
-  ownerEmployeeId: string;
 }>;
 
 export type TrafficPoolResponse = Readonly<{
