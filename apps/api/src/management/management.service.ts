@@ -1,6 +1,5 @@
 import {
   ConflictException,
-  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -25,6 +24,24 @@ import type {
 } from '@crm/validation';
 
 import { DatabaseService } from '../database/database.service.js';
+
+const operationalEmployeeWhere = {
+  deletedAt: null,
+  user: {
+    userRoles: {
+      some: {
+        role: {
+          code: 'EMPLOYEE',
+        },
+      },
+      none: {
+        role: {
+          code: 'ADMIN',
+        },
+      },
+    },
+  },
+} as const;
 
 @Injectable()
 export class ManagementService {
@@ -53,15 +70,17 @@ export class ManagementService {
       leadAttributed,
       leadExcess,
     ] = await Promise.all([
-      this.database.client.employee.count({ where: { organizationId, deletedAt: null } }),
       this.database.client.employee.count({
-        where: { organizationId, deletedAt: null, status: 'ACTIVE' },
+        where: { organizationId, ...operationalEmployeeWhere },
       }),
       this.database.client.employee.count({
-        where: { organizationId, deletedAt: null, status: 'INACTIVE' },
+        where: { organizationId, ...operationalEmployeeWhere, status: 'ACTIVE' },
       }),
       this.database.client.employee.count({
-        where: { organizationId, deletedAt: null, status: 'ON_LEAVE' },
+        where: { organizationId, ...operationalEmployeeWhere, status: 'INACTIVE' },
+      }),
+      this.database.client.employee.count({
+        where: { organizationId, ...operationalEmployeeWhere, status: 'ON_LEAVE' },
       }),
       this.database.client.team.count({ where: { organizationId, deletedAt: null } }),
       this.database.client.team.count({
@@ -171,7 +190,7 @@ export class ManagementService {
         _count: {
           select: {
             employees: {
-              where: { deletedAt: null },
+              where: operationalEmployeeWhere,
             },
           },
         },
@@ -197,7 +216,11 @@ export class ManagementService {
           },
           include: {
             _count: {
-              select: { employees: true },
+              select: {
+                employees: {
+                  where: operationalEmployeeWhere,
+                },
+              },
             },
           },
         });
@@ -244,7 +267,11 @@ export class ManagementService {
           },
           include: {
             _count: {
-              select: { employees: true },
+              select: {
+                employees: {
+                  where: operationalEmployeeWhere,
+                },
+              },
             },
           },
         });
@@ -275,7 +302,7 @@ export class ManagementService {
     const employees = await this.database.client.employee.findMany({
       where: {
         organizationId: principal.organizationId,
-        deletedAt: null,
+        ...operationalEmployeeWhere,
       },
       include: {
         team: true,
@@ -387,13 +414,6 @@ export class ManagementService {
   ): Promise<ManagedEmployeeResponse> {
     const current = await this.getEmployeeRecord(principal.organizationId, employeeId);
 
-    if (current.user.userRoles.some((assignment) => assignment.role.code === 'ADMIN')) {
-      throw new ForbiddenException({
-        code: 'ADMIN_EMPLOYEE_PROTECTED',
-        message: 'Administrator accounts cannot be changed from employee management.',
-      });
-    }
-
     if (input.teamId !== undefined) {
       await this.assertActiveTeam(principal.organizationId, input.teamId);
     }
@@ -500,7 +520,11 @@ export class ManagementService {
 
   private async getEmployeeRecord(organizationId: string, employeeId: string) {
     const employee = await this.database.client.employee.findFirst({
-      where: { id: employeeId, organizationId, deletedAt: null },
+      where: {
+        id: employeeId,
+        organizationId,
+        ...operationalEmployeeWhere,
+      },
       include: {
         team: true,
         user: {
@@ -574,10 +598,12 @@ export class ManagementService {
     };
   }
 
-  private mapEmployee(employee: Awaited<ReturnType<ManagementService['getEmployeeRecord']>>): ManagedEmployeeResponse {
+  private mapEmployee(
+    employee: Awaited<ReturnType<ManagementService['getEmployeeRecord']>>,
+  ): ManagedEmployeeResponse {
     const roles = employee.user.userRoles
       .map((assignment) => assignment.role.code)
-      .filter((role): role is 'ADMIN' | 'EMPLOYEE' => role === 'ADMIN' || role === 'EMPLOYEE');
+      .filter((role): role is 'EMPLOYEE' => role === 'EMPLOYEE');
 
     return {
       id: employee.id,
