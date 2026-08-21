@@ -39,7 +39,6 @@ type LoadedMember = TrafficPoolMemberModel & {
 
 type LoadedPool = TrafficPoolModel & {
   site: SiteModel;
-
   members: LoadedMember[];
 };
 
@@ -56,46 +55,36 @@ export class TrafficPoolsService {
     const pools = await this.database.client.trafficPool.findMany({
       where: {
         organizationId: principal.organizationId,
-
         deletedAt: null,
-
         ...(employeeId
           ? {
-              site: {
-                ownerEmployeeId: employeeId,
-
-                deletedAt: null,
+              members: {
+                some: {
+                  status: 'ACTIVE',
+                  whatsAppNumber: {
+                    deletedAt: null,
+                    assignedEmployeeId: employeeId,
+                  },
+                },
               },
             }
           : {}),
       },
-
       include: {
         site: true,
-
         members: {
-          include: {
-            whatsAppNumber: true,
-          },
-
-          orderBy: {
-            position: 'asc',
-          },
+          include: { whatsAppNumber: true },
+          orderBy: { position: 'asc' },
         },
       },
-
-      orderBy: {
-        name: 'asc',
-      },
+      orderBy: { name: 'asc' },
     });
 
     return pools.map((pool) => this.mapPool(pool));
   }
 
   async getById(principal: AuthenticatedPrincipal, poolId: string): Promise<TrafficPoolResponse> {
-    const pool = await this.getAccessiblePool(principal, poolId);
-
-    return this.mapPool(pool);
+    return this.mapPool(await this.getAccessiblePool(principal, poolId));
   }
 
   async create(
@@ -107,7 +96,6 @@ export class TrafficPoolsService {
     if (site.status === 'ARCHIVED') {
       throw new ConflictException({
         code: 'TRAFFIC_POOL_SITE_ARCHIVED',
-
         message: 'Traffic pools cannot be created for an archived site.',
       });
     }
@@ -117,48 +105,27 @@ export class TrafficPoolsService {
         const created = await transaction.trafficPool.create({
           data: {
             organizationId: principal.organizationId,
-
             siteId: input.siteId,
-
             name: input.name,
-
             slug: input.slug,
-
             description: input.description ?? null,
           },
-
           include: {
             site: true,
-
-            members: {
-              include: {
-                whatsAppNumber: true,
-              },
-            },
+            members: { include: { whatsAppNumber: true } },
           },
         });
 
         await transaction.auditLog.create({
           data: {
             organizationId: principal.organizationId,
-
             actorType: 'USER',
-
             actorUserId: principal.userId,
-
             action: 'traffic_pool.created',
-
             resourceType: 'traffic_pool',
-
             resourceId: created.id,
-
             outcome: 'SUCCESS',
-
-            metadata: {
-              siteId: created.siteId,
-
-              slug: created.slug,
-            },
+            metadata: { siteId: created.siteId, slug: created.slug },
           },
         });
 
@@ -170,7 +137,6 @@ export class TrafficPoolsService {
       if (this.isUniqueConstraintError(error)) {
         throw new ConflictException({
           code: 'TRAFFIC_POOL_ALREADY_EXISTS',
-
           message: 'A traffic pool with this slug already exists in the organization.',
         });
       }
@@ -189,47 +155,18 @@ export class TrafficPoolsService {
     try {
       const pool = await this.database.client.$transaction(async (transaction) => {
         const updated = await transaction.trafficPool.update({
-          where: {
-            id: poolId,
-          },
-
+          where: { id: poolId },
           data: {
-            ...(input.name !== undefined
-              ? {
-                  name: input.name,
-                }
-              : {}),
-
-            ...(input.slug !== undefined
-              ? {
-                  slug: input.slug,
-                }
-              : {}),
-
-            ...(input.description !== undefined
-              ? {
-                  description: input.description,
-                }
-              : {}),
-
-            ...(input.status !== undefined
-              ? {
-                  status: input.status,
-                }
-              : {}),
+            ...(input.name !== undefined ? { name: input.name } : {}),
+            ...(input.slug !== undefined ? { slug: input.slug } : {}),
+            ...(input.description !== undefined ? { description: input.description } : {}),
+            ...(input.status !== undefined ? { status: input.status } : {}),
           },
-
           include: {
             site: true,
-
             members: {
-              include: {
-                whatsAppNumber: true,
-              },
-
-              orderBy: {
-                position: 'asc',
-              },
+              include: { whatsAppNumber: true },
+              orderBy: { position: 'asc' },
             },
           },
         });
@@ -237,17 +174,11 @@ export class TrafficPoolsService {
         await transaction.auditLog.create({
           data: {
             organizationId: principal.organizationId,
-
             actorType: 'USER',
-
             actorUserId: principal.userId,
-
             action: 'traffic_pool.updated',
-
             resourceType: 'traffic_pool',
-
             resourceId: updated.id,
-
             outcome: 'SUCCESS',
           },
         });
@@ -260,7 +191,6 @@ export class TrafficPoolsService {
       if (this.isUniqueConstraintError(error)) {
         throw new ConflictException({
           code: 'TRAFFIC_POOL_ALREADY_EXISTS',
-
           message: 'A traffic pool with this slug already exists in the organization.',
         });
       }
@@ -274,7 +204,6 @@ export class TrafficPoolsService {
     poolId: string,
   ): Promise<readonly TrafficPoolMemberResponse[]> {
     const pool = await this.getAccessiblePool(principal, poolId);
-
     return pool.members.map((member) => this.mapMember(member));
   }
 
@@ -284,17 +213,12 @@ export class TrafficPoolsService {
     input: AddTrafficPoolMemberInput,
   ): Promise<TrafficPoolMemberResponse> {
     const pool = await this.getOrganizationPool(principal.organizationId, poolId);
-
     this.assertPoolMutable(pool);
-
-    const site = await this.getOrganizationSite(principal.organizationId, pool.siteId);
 
     const number = await this.database.client.whatsAppNumber.findFirst({
       where: {
         id: input.whatsAppNumberId,
-
         organizationId: principal.organizationId,
-
         deletedAt: null,
       },
     });
@@ -302,7 +226,6 @@ export class TrafficPoolsService {
     if (!number) {
       throw new BadRequestException({
         code: 'TRAFFIC_POOL_NUMBER_INVALID',
-
         message: 'WhatsApp number does not exist in this organization.',
       });
     }
@@ -310,7 +233,6 @@ export class TrafficPoolsService {
     if (number.status !== 'ACTIVE') {
       throw new ConflictException({
         code: 'TRAFFIC_POOL_NUMBER_NOT_ACTIVE',
-
         message: 'Only ACTIVE WhatsApp numbers can be added to a traffic pool.',
       });
     }
@@ -318,17 +240,7 @@ export class TrafficPoolsService {
     if (number.assignedEmployeeId === null) {
       throw new ConflictException({
         code: 'TRAFFIC_POOL_NUMBER_UNASSIGNED',
-
-        message:
-          'The WhatsApp number must be assigned to an employee before entering a traffic pool.',
-      });
-    }
-
-    if (number.assignedEmployeeId !== site.ownerEmployeeId) {
-      throw new ConflictException({
-        code: 'TRAFFIC_POOL_NUMBER_OWNER_MISMATCH',
-
-        message: 'The WhatsApp number must belong to the employee who owns the site.',
+        message: 'The WhatsApp number must be assigned to an employee before entering a traffic pool.',
       });
     }
 
@@ -337,17 +249,10 @@ export class TrafficPoolsService {
         const lastMember = await transaction.trafficPoolMember.findFirst({
           where: {
             organizationId: principal.organizationId,
-
             trafficPoolId: poolId,
           },
-
-          orderBy: {
-            position: 'desc',
-          },
-
-          select: {
-            position: true,
-          },
+          orderBy: { position: 'desc' },
+          select: { position: true },
         });
 
         const position = (lastMember?.position ?? 0) + 1;
@@ -355,40 +260,26 @@ export class TrafficPoolsService {
         const created = await transaction.trafficPoolMember.create({
           data: {
             organizationId: principal.organizationId,
-
             trafficPoolId: poolId,
-
             whatsAppNumberId: number.id,
-
             position,
           },
-
-          include: {
-            whatsAppNumber: true,
-          },
+          include: { whatsAppNumber: true },
         });
 
         await transaction.auditLog.create({
           data: {
             organizationId: principal.organizationId,
-
             actorType: 'USER',
-
             actorUserId: principal.userId,
-
             action: 'traffic_pool.member_added',
-
             resourceType: 'traffic_pool_member',
-
             resourceId: created.id,
-
             outcome: 'SUCCESS',
-
             metadata: {
               trafficPoolId: poolId,
-
               whatsAppNumberId: number.id,
-
+              assignedEmployeeId: number.assignedEmployeeId,
               position,
             },
           },
@@ -402,7 +293,6 @@ export class TrafficPoolsService {
       if (this.isUniqueConstraintError(error)) {
         throw new ConflictException({
           code: 'TRAFFIC_POOL_MEMBER_ALREADY_EXISTS',
-
           message: 'This WhatsApp number is already a member of the traffic pool.',
         });
       }
@@ -418,15 +308,12 @@ export class TrafficPoolsService {
     input: UpdateTrafficPoolMemberInput,
   ): Promise<TrafficPoolMemberResponse> {
     const pool = await this.getOrganizationPool(principal.organizationId, poolId);
-
     this.assertPoolMutable(pool);
 
     const member = await this.database.client.trafficPoolMember.findFirst({
       where: {
         id: memberId,
-
         organizationId: principal.organizationId,
-
         trafficPoolId: poolId,
       },
     });
@@ -434,47 +321,27 @@ export class TrafficPoolsService {
     if (!member) {
       throw new NotFoundException({
         code: 'TRAFFIC_POOL_MEMBER_NOT_FOUND',
-
         message: 'Traffic pool member not found.',
       });
     }
 
     const updated = await this.database.client.$transaction(async (transaction) => {
       const result = await transaction.trafficPoolMember.update({
-        where: {
-          id: memberId,
-        },
-
-        data: {
-          status: input.status,
-        },
-
-        include: {
-          whatsAppNumber: true,
-        },
+        where: { id: memberId },
+        data: { status: input.status },
+        include: { whatsAppNumber: true },
       });
 
       await transaction.auditLog.create({
         data: {
           organizationId: principal.organizationId,
-
           actorType: 'USER',
-
           actorUserId: principal.userId,
-
           action: 'traffic_pool.member_updated',
-
           resourceType: 'traffic_pool_member',
-
           resourceId: memberId,
-
           outcome: 'SUCCESS',
-
-          metadata: {
-            trafficPoolId: poolId,
-
-            status: input.status,
-          },
+          metadata: { trafficPoolId: poolId, status: input.status },
         },
       });
 
@@ -490,23 +357,17 @@ export class TrafficPoolsService {
     input: ReorderTrafficPoolMembersInput,
   ): Promise<readonly TrafficPoolMemberResponse[]> {
     const pool = await this.getOrganizationPool(principal.organizationId, poolId);
-
     this.assertPoolMutable(pool);
 
     const members = await this.database.client.trafficPoolMember.findMany({
       where: {
         organizationId: principal.organizationId,
-
         trafficPoolId: poolId,
       },
-
-      orderBy: {
-        position: 'asc',
-      },
+      orderBy: { position: 'asc' },
     });
 
     const currentIds = members.map((member) => member.id).sort();
-
     const requestedIds = [...input.memberIds].sort();
 
     if (
@@ -515,77 +376,45 @@ export class TrafficPoolsService {
     ) {
       throw new BadRequestException({
         code: 'TRAFFIC_POOL_REORDER_INVALID',
-
         message: 'memberIds must contain every current traffic pool member exactly once.',
       });
     }
 
     const reordered = await this.database.client.$transaction(async (transaction) => {
-      /*
-       * Passo temporário negativo para
-       * evitar colisões com o UNIQUE
-       * (trafficPoolId, position).
-       */
       for (const [index, memberId] of input.memberIds.entries()) {
         await transaction.trafficPoolMember.update({
-          where: {
-            id: memberId,
-          },
-
-          data: {
-            position: -(index + 1),
-          },
+          where: { id: memberId },
+          data: { position: -(index + 1) },
         });
       }
 
       for (const [index, memberId] of input.memberIds.entries()) {
         await transaction.trafficPoolMember.update({
-          where: {
-            id: memberId,
-          },
-
-          data: {
-            position: index + 1,
-          },
+          where: { id: memberId },
+          data: { position: index + 1 },
         });
       }
 
       await transaction.auditLog.create({
         data: {
           organizationId: principal.organizationId,
-
           actorType: 'USER',
-
           actorUserId: principal.userId,
-
           action: 'traffic_pool.members_reordered',
-
           resourceType: 'traffic_pool',
-
           resourceId: poolId,
-
           outcome: 'SUCCESS',
-
-          metadata: {
-            memberIds: input.memberIds,
-          },
+          metadata: { memberIds: input.memberIds },
         },
       });
 
       return transaction.trafficPoolMember.findMany({
         where: {
           organizationId: principal.organizationId,
-
           trafficPoolId: poolId,
         },
-
-        include: {
-          whatsAppNumber: true,
-        },
-
-        orderBy: {
-          position: 'asc',
-        },
+        include: { whatsAppNumber: true },
+        orderBy: { position: 'asc' },
       });
     });
 
@@ -598,15 +427,12 @@ export class TrafficPoolsService {
     memberId: string,
   ): Promise<TrafficPoolMemberDeleteResponse> {
     const pool = await this.getOrganizationPool(principal.organizationId, poolId);
-
     this.assertPoolMutable(pool);
 
     const member = await this.database.client.trafficPoolMember.findFirst({
       where: {
         id: memberId,
-
         organizationId: principal.organizationId,
-
         trafficPoolId: poolId,
       },
     });
@@ -614,82 +440,53 @@ export class TrafficPoolsService {
     if (!member) {
       throw new NotFoundException({
         code: 'TRAFFIC_POOL_MEMBER_NOT_FOUND',
-
         message: 'Traffic pool member not found.',
       });
     }
 
     await this.database.client.$transaction(async (transaction) => {
-      await transaction.trafficPoolMember.delete({
-        where: {
-          id: memberId,
-        },
-      });
+      await transaction.trafficPoolMember.delete({ where: { id: memberId } });
 
       const remaining = await transaction.trafficPoolMember.findMany({
         where: {
           organizationId: principal.organizationId,
-
           trafficPoolId: poolId,
         },
-
-        orderBy: {
-          position: 'asc',
-        },
+        orderBy: { position: 'asc' },
       });
 
       for (const [index, remainingMember] of remaining.entries()) {
         await transaction.trafficPoolMember.update({
-          where: {
-            id: remainingMember.id,
-          },
-
-          data: {
-            position: -(index + 1),
-          },
+          where: { id: remainingMember.id },
+          data: { position: -(index + 1) },
         });
       }
 
       for (const [index, remainingMember] of remaining.entries()) {
         await transaction.trafficPoolMember.update({
-          where: {
-            id: remainingMember.id,
-          },
-
-          data: {
-            position: index + 1,
-          },
+          where: { id: remainingMember.id },
+          data: { position: index + 1 },
         });
       }
 
       await transaction.auditLog.create({
         data: {
           organizationId: principal.organizationId,
-
           actorType: 'USER',
-
           actorUserId: principal.userId,
-
           action: 'traffic_pool.member_removed',
-
           resourceType: 'traffic_pool_member',
-
           resourceId: memberId,
-
           outcome: 'SUCCESS',
-
           metadata: {
             trafficPoolId: poolId,
-
             whatsAppNumberId: member.whatsAppNumberId,
           },
         },
       });
     });
 
-    return {
-      success: true,
-    };
+    return { success: true };
   }
 
   private async getAccessiblePool(
@@ -701,33 +498,27 @@ export class TrafficPoolsService {
     const pool = await this.database.client.trafficPool.findFirst({
       where: {
         id: poolId,
-
         organizationId: principal.organizationId,
-
         deletedAt: null,
-
         ...(employeeId
           ? {
-              site: {
-                ownerEmployeeId: employeeId,
-
-                deletedAt: null,
+              members: {
+                some: {
+                  status: 'ACTIVE',
+                  whatsAppNumber: {
+                    deletedAt: null,
+                    assignedEmployeeId: employeeId,
+                  },
+                },
               },
             }
           : {}),
       },
-
       include: {
         site: true,
-
         members: {
-          include: {
-            whatsAppNumber: true,
-          },
-
-          orderBy: {
-            position: 'asc',
-          },
+          include: { whatsAppNumber: true },
+          orderBy: { position: 'asc' },
         },
       },
     });
@@ -735,7 +526,6 @@ export class TrafficPoolsService {
     if (!pool) {
       throw new NotFoundException({
         code: 'TRAFFIC_POOL_NOT_FOUND',
-
         message: 'Traffic pool not found.',
       });
     }
@@ -748,19 +538,12 @@ export class TrafficPoolsService {
     poolId: string,
   ): Promise<TrafficPoolModel> {
     const pool = await this.database.client.trafficPool.findFirst({
-      where: {
-        id: poolId,
-
-        organizationId,
-
-        deletedAt: null,
-      },
+      where: { id: poolId, organizationId, deletedAt: null },
     });
 
     if (!pool) {
       throw new NotFoundException({
         code: 'TRAFFIC_POOL_NOT_FOUND',
-
         message: 'Traffic pool not found.',
       });
     }
@@ -770,19 +553,12 @@ export class TrafficPoolsService {
 
   private async getOrganizationSite(organizationId: string, siteId: string): Promise<SiteModel> {
     const site = await this.database.client.site.findFirst({
-      where: {
-        id: siteId,
-
-        organizationId,
-
-        deletedAt: null,
-      },
+      where: { id: siteId, organizationId, deletedAt: null },
     });
 
     if (!site) {
       throw new BadRequestException({
         code: 'TRAFFIC_POOL_SITE_INVALID',
-
         message: 'Site does not exist in this organization.',
       });
     }
@@ -794,7 +570,6 @@ export class TrafficPoolsService {
     if (pool.status === 'ARCHIVED') {
       throw new ConflictException({
         code: 'TRAFFIC_POOL_ARCHIVED',
-
         message: 'Archived traffic pools cannot have their membership changed.',
       });
     }
@@ -804,23 +579,16 @@ export class TrafficPoolsService {
     const employee = await this.database.client.employee.findFirst({
       where: {
         organizationId: principal.organizationId,
-
         userId: principal.userId,
-
         status: 'ACTIVE',
-
         deletedAt: null,
       },
-
-      select: {
-        id: true,
-      },
+      select: { id: true },
     });
 
     if (!employee) {
       throw new ForbiddenException({
         code: 'EMPLOYEE_PROFILE_REQUIRED',
-
         message: 'An active employee profile is required.',
       });
     }
@@ -835,33 +603,19 @@ export class TrafficPoolsService {
   private mapPool(pool: LoadedPool): TrafficPoolResponse {
     return {
       id: pool.id,
-
       organizationId: pool.organizationId,
-
       siteId: pool.siteId,
-
       name: pool.name,
-
       slug: pool.slug,
-
       description: pool.description,
-
       status: pool.status,
-
       site: {
         id: pool.site.id,
-
         name: pool.site.name,
-
         slug: pool.site.slug,
-
-        ownerEmployeeId: pool.site.ownerEmployeeId,
       },
-
       members: pool.members.map((member) => this.mapMember(member)),
-
       createdAt: pool.createdAt.toISOString(),
-
       updatedAt: pool.updatedAt.toISOString(),
     };
   }
@@ -869,47 +623,29 @@ export class TrafficPoolsService {
   private mapMember(member: LoadedMember): TrafficPoolMemberResponse {
     return {
       id: member.id,
-
       organizationId: member.organizationId,
-
       trafficPoolId: member.trafficPoolId,
-
       whatsAppNumberId: member.whatsAppNumberId,
-
       position: member.position,
-
       status: member.status,
-
       number: {
         id: member.whatsAppNumber.id,
-
         displayName: member.whatsAppNumber.displayName,
-
         e164: member.whatsAppNumber.e164,
-
         assignedEmployeeId: member.whatsAppNumber.assignedEmployeeId,
-
         status: member.whatsAppNumber.status,
       },
-
       createdAt: member.createdAt.toISOString(),
-
       updatedAt: member.updatedAt.toISOString(),
     };
   }
 
   private isUniqueConstraintError(error: unknown): boolean {
-    if (typeof error !== 'object' || error === null) {
-      return false;
-    }
-
     return (
+      typeof error === 'object' &&
+      error !== null &&
       'code' in error &&
-      (
-        error as {
-          code?: unknown;
-        }
-      ).code === 'P2002'
+      (error as { code?: unknown }).code === 'P2002'
     );
   }
 }
