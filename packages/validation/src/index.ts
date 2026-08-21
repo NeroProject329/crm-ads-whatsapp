@@ -65,16 +65,6 @@ export function normalizeWhatsAppPhone(value: string): string {
     return '';
   }
 
-  /*
-   * 1. NÃºmero internacional explÃ­cito
-   * com "+" tem prioridade absoluta.
-   *
-   * +14155552671
-   * â†’ +14155552671
-   *
-   * +55 11 97394-6730
-   * â†’ +5511973946730
-   */
   if (
     original.startsWith('+') &&
     digits.length >= 8 &&
@@ -84,15 +74,6 @@ export function normalizeWhatsAppPhone(value: string): string {
     return `+${digits}`;
   }
 
-  /*
-   * 2. Prefixo internacional "00".
-   *
-   * 005511973946730
-   * â†’ +5511973946730
-   *
-   * 0014155552671
-   * â†’ +14155552671
-   */
   if (compact.startsWith('00')) {
     digits = digits.slice(2);
 
@@ -103,37 +84,14 @@ export function normalizeWhatsAppPhone(value: string): string {
     return '';
   }
 
-  /*
-   * 3. Brasil jÃ¡ com cÃ³digo 55,
-   * mas sem "+".
-   *
-   * 5511973946730
-   * â†’ +5511973946730
-   */
   if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
     return `+${digits}`;
   }
 
-  /*
-   * 4. Prefixo nacional "0".
-   *
-   * 011973946730
-   * â†’ 11973946730
-   */
   if (digits.startsWith('0') && (digits.length === 11 || digits.length === 12)) {
     digits = digits.slice(1);
   }
 
-  /*
-   * 5. NÃºmero brasileiro sem
-   * cÃ³digo do paÃ­s.
-   *
-   * 11973946730
-   * â†’ +5511973946730
-   *
-   * 1132345678
-   * â†’ +551132345678
-   */
   if ((digits.length === 10 || digits.length === 11) && /^[1-9]\d+$/.test(digits)) {
     return `+55${digits}`;
   }
@@ -157,24 +115,17 @@ const whatsAppNotesSchema = z.string().trim().max(500).nullable();
 
 export const createSiteSchema = z.object({
   ownerEmployeeId: uuidSchema,
-
   name: siteNameSchema,
-
   slug: siteSlugSchema,
-
   description: siteDescriptionSchema.optional(),
 });
 
 export const updateSiteSchema = z
   .object({
     ownerEmployeeId: uuidSchema.optional(),
-
     name: siteNameSchema.optional(),
-
     slug: siteSlugSchema.optional(),
-
     description: siteDescriptionSchema.optional(),
-
     status: siteStatusSchema.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
@@ -183,20 +134,15 @@ export const updateSiteSchema = z
 
 export const createSiteDomainSchema = z.object({
   hostname: hostnameSchema,
-
   isPrimary: z.boolean().default(false),
-
   monitoringEnabled: z.boolean().default(true),
 });
 
 export const updateSiteDomainSchema = z
   .object({
     hostname: hostnameSchema.optional(),
-
     isPrimary: z.boolean().optional(),
-
     monitoringEnabled: z.boolean().optional(),
-
     status: domainStatusSchema.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
@@ -205,24 +151,17 @@ export const updateSiteDomainSchema = z
 
 export const createWhatsAppNumberSchema = z.object({
   displayName: whatsAppDisplayNameSchema,
-
   e164: e164Schema,
-
   assignedEmployeeId: uuidSchema.nullable().optional(),
-
   notes: whatsAppNotesSchema.optional(),
 });
 
 export const updateWhatsAppNumberSchema = z
   .object({
     displayName: whatsAppDisplayNameSchema.optional(),
-
     e164: e164Schema.optional(),
-
     assignedEmployeeId: uuidSchema.nullable().optional(),
-
     notes: whatsAppNotesSchema.optional(),
-
     status: whatsAppNumberStatusSchema.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
@@ -230,23 +169,16 @@ export const updateWhatsAppNumberSchema = z
   });
 
 export type LoginInput = z.infer<typeof loginSchema>;
-
 export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
-
 export type CreateSiteInput = z.infer<typeof createSiteSchema>;
-
 export type UpdateSiteInput = z.infer<typeof updateSiteSchema>;
-
 export type CreateSiteDomainInput = z.infer<typeof createSiteDomainSchema>;
-
 export type UpdateSiteDomainInput = z.infer<typeof updateSiteDomainSchema>;
-
 export type CreateWhatsAppNumberInput = z.infer<typeof createWhatsAppNumberSchema>;
-
 export type UpdateWhatsAppNumberInput = z.infer<typeof updateWhatsAppNumberSchema>;
 
+export * from './management.js';
 export * from './traffic-pool.js';
-
 export * from './ads.js';
 export * from './notifications.js';
 export * from './meta-cloud.js';
