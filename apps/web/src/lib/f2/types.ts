@@ -38,7 +38,7 @@ export type ManagedEmployee = Readonly<{
     lastLoginAt: string | null;
     createdAt: string;
   }>;
-  roles: readonly ('ADMIN' | 'EMPLOYEE')[];
+  roles: readonly 'EMPLOYEE'[];
   createdAt: string;
   updatedAt: string;
 }>;
@@ -68,17 +68,10 @@ export type ManagedSiteDomain = Readonly<{
 export type ManagedSite = Readonly<{
   id: string;
   organizationId: string;
-  ownerEmployeeId: string;
   name: string;
   slug: string;
   description: string | null;
   status: 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
-  owner: Readonly<{
-    employeeCode: string;
-    employeeId: string;
-    displayName: string;
-    userId: string;
-  }>;
   domains: readonly ManagedSiteDomain[];
   createdAt: string;
   updatedAt: string;
