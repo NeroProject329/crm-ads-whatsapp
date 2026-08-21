@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useSession } from '@/components/auth/session-provider';
 import { crmFetch } from '@/lib/backend/client';
-import type { ManagedSite, ManagementOverview } from '@/lib/f2/types';
+import type { ManagedEmployee, ManagedSite, ManagementOverview } from '@/lib/f2/types';
 
 type Metric = Readonly<{
   label: string;
@@ -16,6 +16,7 @@ type Metric = Readonly<{
 export function DashboardOverview() {
   const { loading: sessionLoading, user } = useSession();
   const [overview, setOverview] = useState<ManagementOverview | null>(null);
+  const [employees, setEmployees] = useState<readonly ManagedEmployee[]>([]);
   const [sites, setSites] = useState<readonly ManagedSite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,8 +36,19 @@ export function DashboardOverview() {
 
       try {
         if (isAdmin) {
-          const data = await crmFetch<ManagementOverview>('/api/management/overview');
-          if (active) setOverview(data);
+          const [overviewData, employeeData] = await Promise.all([
+            crmFetch<ManagementOverview>('/api/management/overview'),
+            crmFetch<readonly ManagedEmployee[]>('/api/management/employees'),
+          ]);
+
+          const operationalEmployees = employeeData.filter(
+            (employee) => !employee.roles.includes('ADMIN'),
+          );
+
+          if (active) {
+            setOverview(overviewData);
+            setEmployees(operationalEmployees);
+          }
         } else {
           const data = await crmFetch<readonly ManagedSite[]>('/api/crm-sites');
           if (active) setSites(data);
@@ -76,11 +88,15 @@ export function DashboardOverview() {
 
     if (!overview) return [];
 
+    const activeEmployees = employees.filter(
+      (employee) => employee.status === 'ACTIVE' && employee.user.status === 'ACTIVE',
+    ).length;
+
     return [
       {
         label: 'Funcionarios',
-        value: overview.employees.total,
-        detail: `${overview.employees.active} ativos`,
+        value: employees.length,
+        detail: `${activeEmployees} ativos`,
         tone: 'blue',
       },
       {
@@ -110,7 +126,7 @@ export function DashboardOverview() {
         tone: 'dark',
       },
     ];
-  }, [isAdmin, overview, sites]);
+  }, [employees, isAdmin, overview, sites]);
 
   return (
     <div className="f2-page f2-dashboard">
