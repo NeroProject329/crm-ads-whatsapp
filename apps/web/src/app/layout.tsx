@@ -7,6 +7,7 @@ import { OneSignalBootstrap } from '@/components/onesignal-bootstrap';
 import { PwaBootstrap } from '@/components/pwa-bootstrap';
 
 import './globals.css';
+import './management-blue-theme.css';
 
 export const metadata: Metadata = {
   title: 'CRM ADS/WhatsApp',
@@ -31,7 +32,7 @@ export const viewport: Viewport = {
 
   viewportFit: 'cover',
 
-  themeColor: '#0b0b0b',
+  themeColor: '#dfe5ee',
 };
 
 type RootLayoutProps = Readonly<{
