@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
@@ -8,11 +7,8 @@ import {
 } from '@nestjs/common';
 
 import type { AuthenticatedPrincipal } from '@crm/auth';
-
-import type { EmployeeModel, SiteDomainModel, SiteModel, UserModel } from '@crm/database';
-
+import type { SiteDomainModel, SiteModel } from '@crm/database';
 import type { SiteDomainResponse, SiteListResponse, SiteResponse } from '@crm/contracts';
-
 import type {
   CreateSiteDomainInput,
   CreateSiteInput,
@@ -23,10 +19,6 @@ import type {
 import { DatabaseService } from '../database/database.service.js';
 
 type LoadedSite = SiteModel & {
-  ownerEmployee: Pick<EmployeeModel, 'id' | 'employeeCode' | 'userId'> & {
-    user: Pick<UserModel, 'displayName'>;
-  };
-
   domains: SiteDomainModel[];
 };
 
@@ -43,111 +35,68 @@ export class SitesService {
     const sites = await this.database.client.site.findMany({
       where: {
         organizationId: principal.organizationId,
-
         deletedAt: null,
-
         ...(employeeId
           ? {
-              ownerEmployeeId: employeeId,
+              trafficPools: {
+                some: {
+                  deletedAt: null,
+                  members: {
+                    some: {
+                      status: 'ACTIVE',
+                      whatsAppNumber: {
+                        deletedAt: null,
+                        assignedEmployeeId: employeeId,
+                      },
+                    },
+                  },
+                },
+              },
             }
           : {}),
       },
-
       include: {
-        ownerEmployee: {
-          include: {
-            user: {
-              select: {
-                displayName: true,
-              },
-            },
-          },
-        },
-
         domains: {
-          where: {
-            deletedAt: null,
-          },
-
-          orderBy: [
-            {
-              isPrimary: 'desc',
-            },
-            {
-              hostname: 'asc',
-            },
-          ],
+          where: { deletedAt: null },
+          orderBy: [{ isPrimary: 'desc' }, { hostname: 'asc' }],
         },
       },
-
-      orderBy: {
-        name: 'asc',
-      },
+      orderBy: { name: 'asc' },
     });
 
     return sites.map((site) => this.mapSite(site));
   }
 
   async getById(principal: AuthenticatedPrincipal, siteId: string): Promise<SiteResponse> {
-    const site = await this.getAccessibleSite(principal, siteId);
-
-    return this.mapSite(site);
+    return this.mapSite(await this.getAccessibleSite(principal, siteId));
   }
 
   async create(principal: AuthenticatedPrincipal, input: CreateSiteInput): Promise<SiteResponse> {
-    await this.assertActiveEmployee(principal.organizationId, input.ownerEmployeeId);
+    const legacyOwnerEmployeeId = await this.getLegacyAdminEmployeeId(principal);
 
     try {
       const site = await this.database.client.$transaction(async (transaction) => {
         const created = await transaction.site.create({
           data: {
             organizationId: principal.organizationId,
-
-            ownerEmployeeId: input.ownerEmployeeId,
-
+            ownerEmployeeId: legacyOwnerEmployeeId,
             name: input.name,
-
             slug: input.slug,
-
             description: input.description ?? null,
           },
-
-          include: {
-            ownerEmployee: {
-              include: {
-                user: {
-                  select: {
-                    displayName: true,
-                  },
-                },
-              },
-            },
-
-            domains: true,
-          },
+          include: { domains: true },
         });
 
         await transaction.auditLog.create({
           data: {
             organizationId: principal.organizationId,
-
             actorType: 'USER',
-
             actorUserId: principal.userId,
-
             action: 'site.created',
-
             resourceType: 'site',
-
             resourceId: created.id,
-
             outcome: 'SUCCESS',
-
-            metadata: {
-              slug: created.slug,
-
-              ownerEmployeeId: created.ownerEmployeeId,
-            },
+            metadata: { slug: created.slug },
           },
         });
 
@@ -159,7 +108,6 @@ export class SitesService {
       if (this.isUniqueConstraintError(error)) {
         throw new ConflictException({
           code: 'SITE_ALREADY_EXISTS',
-
           message: 'A site with this slug already exists in the organization.',
         });
       }
@@ -175,64 +123,20 @@ export class SitesService {
   ): Promise<SiteResponse> {
     await this.getOrganizationSite(principal.organizationId, siteId);
 
-    if (input.ownerEmployeeId !== undefined) {
-      await this.assertActiveEmployee(principal.organizationId, input.ownerEmployeeId);
-    }
-
     try {
       const site = await this.database.client.$transaction(async (transaction) => {
         const updated = await transaction.site.update({
-          where: {
-            id: siteId,
-          },
-
+          where: { id: siteId },
           data: {
-            ...(input.ownerEmployeeId !== undefined
-              ? {
-                  ownerEmployeeId: input.ownerEmployeeId,
-                }
-              : {}),
-
-            ...(input.name !== undefined
-              ? {
-                  name: input.name,
-                }
-              : {}),
-
-            ...(input.slug !== undefined
-              ? {
-                  slug: input.slug,
-                }
-              : {}),
-
-            ...(input.description !== undefined
-              ? {
-                  description: input.description,
-                }
-              : {}),
-
-            ...(input.status !== undefined
-              ? {
-                  status: input.status,
-                }
-              : {}),
+            ...(input.name !== undefined ? { name: input.name } : {}),
+            ...(input.slug !== undefined ? { slug: input.slug } : {}),
+            ...(input.description !== undefined ? { description: input.description } : {}),
+            ...(input.status !== undefined ? { status: input.status } : {}),
           },
-
           include: {
-            ownerEmployee: {
-              include: {
-                user: {
-                  select: {
-                    displayName: true,
-                  },
-                },
-              },
-            },
-
             domains: {
-              where: {
-                deletedAt: null,
-              },
+              where: { deletedAt: null },
+              orderBy: [{ isPrimary: 'desc' }, { hostname: 'asc' }],
             },
           },
         });
@@ -240,17 +144,11 @@ export class SitesService {
         await transaction.auditLog.create({
           data: {
             organizationId: principal.organizationId,
-
             actorType: 'USER',
-
             actorUserId: principal.userId,
-
             action: 'site.updated',
-
             resourceType: 'site',
-
             resourceId: updated.id,
-
             outcome: 'SUCCESS',
           },
         });
@@ -263,7 +161,6 @@ export class SitesService {
       if (this.isUniqueConstraintError(error)) {
         throw new ConflictException({
           code: 'SITE_ALREADY_EXISTS',
-
           message: 'A site with this slug already exists in the organization.',
         });
       }
@@ -277,7 +174,6 @@ export class SitesService {
     siteId: string,
   ): Promise<readonly SiteDomainResponse[]> {
     const site = await this.getAccessibleSite(principal, siteId);
-
     return site.domains.map((domain) => this.mapDomain(domain));
   }
 
@@ -294,30 +190,20 @@ export class SitesService {
           await transaction.siteDomain.updateMany({
             where: {
               organizationId: principal.organizationId,
-
               siteId,
-
               deletedAt: null,
-
               isPrimary: true,
             },
-
-            data: {
-              isPrimary: false,
-            },
+            data: { isPrimary: false },
           });
         }
 
         const created = await transaction.siteDomain.create({
           data: {
             organizationId: principal.organizationId,
-
             siteId,
-
             hostname: input.hostname,
-
             isPrimary: input.isPrimary,
-
             monitoringEnabled: input.monitoringEnabled === true,
           },
         });
@@ -325,24 +211,15 @@ export class SitesService {
         await transaction.auditLog.create({
           data: {
             organizationId: principal.organizationId,
-
             actorType: 'USER',
-
             actorUserId: principal.userId,
-
             action: 'site_domain.created',
-
             resourceType: 'site_domain',
-
             resourceId: created.id,
-
             outcome: 'SUCCESS',
-
             metadata: {
               siteId,
-
               hostname: created.hostname,
-
               isPrimary: created.isPrimary,
             },
           },
@@ -356,7 +233,6 @@ export class SitesService {
       if (this.isUniqueConstraintError(error)) {
         throw new ConflictException({
           code: 'DOMAIN_ALREADY_EXISTS',
-
           message: 'This hostname is already registered.',
         });
       }
@@ -376,11 +252,8 @@ export class SitesService {
     const current = await this.database.client.siteDomain.findFirst({
       where: {
         id: domainId,
-
         organizationId: principal.organizationId,
-
         siteId,
-
         deletedAt: null,
       },
     });
@@ -388,7 +261,6 @@ export class SitesService {
     if (!current) {
       throw new NotFoundException({
         code: 'DOMAIN_NOT_FOUND',
-
         message: 'Domain not found.',
       });
     }
@@ -399,76 +271,37 @@ export class SitesService {
           await transaction.siteDomain.updateMany({
             where: {
               organizationId: principal.organizationId,
-
               siteId,
-
               deletedAt: null,
-
               isPrimary: true,
-
-              id: {
-                not: domainId,
-              },
+              id: { not: domainId },
             },
-
-            data: {
-              isPrimary: false,
-            },
+            data: { isPrimary: false },
           });
         }
 
         const updated = await transaction.siteDomain.update({
-          where: {
-            id: domainId,
-          },
-
+          where: { id: domainId },
           data: {
-            ...(input.hostname !== undefined
-              ? {
-                  hostname: input.hostname,
-                }
-              : {}),
-
-            ...(input.isPrimary !== undefined
-              ? {
-                  isPrimary: input.isPrimary,
-
-                  monitoringEnabled: input.monitoringEnabled === true,
-                }
-              : {}),
-
+            ...(input.hostname !== undefined ? { hostname: input.hostname } : {}),
+            ...(input.isPrimary !== undefined ? { isPrimary: input.isPrimary } : {}),
             ...(input.monitoringEnabled !== undefined
-              ? {
-                  monitoringEnabled: input.monitoringEnabled === true,
-                }
+              ? { monitoringEnabled: input.monitoringEnabled === true }
               : {}),
-            ...(input.status !== undefined
-              ? {
-                  status: input.status,
-                }
-              : {}),
+            ...(input.status !== undefined ? { status: input.status } : {}),
           },
         });
 
         await transaction.auditLog.create({
           data: {
             organizationId: principal.organizationId,
-
             actorType: 'USER',
-
             actorUserId: principal.userId,
-
             action: 'site_domain.updated',
-
             resourceType: 'site_domain',
-
             resourceId: updated.id,
-
             outcome: 'SUCCESS',
-
-            metadata: {
-              siteId,
-            },
+            metadata: { siteId },
           },
         });
 
@@ -480,7 +313,6 @@ export class SitesService {
       if (this.isUniqueConstraintError(error)) {
         throw new ConflictException({
           code: 'DOMAIN_ALREADY_EXISTS',
-
           message: 'This hostname is already registered.',
         });
       }
@@ -498,42 +330,31 @@ export class SitesService {
     const site = await this.database.client.site.findFirst({
       where: {
         id: siteId,
-
         organizationId: principal.organizationId,
-
         deletedAt: null,
-
         ...(employeeId
           ? {
-              ownerEmployeeId: employeeId,
+              trafficPools: {
+                some: {
+                  deletedAt: null,
+                  members: {
+                    some: {
+                      status: 'ACTIVE',
+                      whatsAppNumber: {
+                        deletedAt: null,
+                        assignedEmployeeId: employeeId,
+                      },
+                    },
+                  },
+                },
+              },
             }
           : {}),
       },
-
       include: {
-        ownerEmployee: {
-          include: {
-            user: {
-              select: {
-                displayName: true,
-              },
-            },
-          },
-        },
-
         domains: {
-          where: {
-            deletedAt: null,
-          },
-
-          orderBy: [
-            {
-              isPrimary: 'desc',
-            },
-            {
-              hostname: 'asc',
-            },
-          ],
+          where: { deletedAt: null },
+          orderBy: [{ isPrimary: 'desc' }, { hostname: 'asc' }],
         },
       },
     });
@@ -541,7 +362,6 @@ export class SitesService {
     if (!site) {
       throw new NotFoundException({
         code: 'SITE_NOT_FOUND',
-
         message: 'Site not found.',
       });
     }
@@ -551,19 +371,12 @@ export class SitesService {
 
   private async getOrganizationSite(organizationId: string, siteId: string): Promise<SiteModel> {
     const site = await this.database.client.site.findFirst({
-      where: {
-        id: siteId,
-
-        organizationId,
-
-        deletedAt: null,
-      },
+      where: { id: siteId, organizationId, deletedAt: null },
     });
 
     if (!site) {
       throw new NotFoundException({
         code: 'SITE_NOT_FOUND',
-
         message: 'Site not found.',
       });
     }
@@ -571,53 +384,46 @@ export class SitesService {
     return site;
   }
 
-  private async assertActiveEmployee(organizationId: string, employeeId: string): Promise<void> {
+  private async getLegacyAdminEmployeeId(principal: AuthenticatedPrincipal): Promise<string> {
     const employee = await this.database.client.employee.findFirst({
       where: {
-        id: employeeId,
-
-        organizationId,
-
-        status: 'ACTIVE',
-
+        organizationId: principal.organizationId,
         deletedAt: null,
+        user: {
+          userRoles: {
+            some: {
+              role: { code: 'ADMIN' },
+            },
+          },
+        },
       },
-
-      select: {
-        id: true,
-      },
+      select: { id: true },
     });
 
     if (!employee) {
-      throw new BadRequestException({
-        code: 'SITE_OWNER_INVALID',
-
-        message: 'The selected employee is not active in this organization.',
+      throw new NotFoundException({
+        code: 'ADMIN_PROFILE_REQUIRED',
+        message: 'Administrator profile required to create sites.',
       });
     }
+
+    return employee.id;
   }
 
   private async getCurrentEmployeeId(principal: AuthenticatedPrincipal): Promise<string> {
     const employee = await this.database.client.employee.findFirst({
       where: {
         organizationId: principal.organizationId,
-
         userId: principal.userId,
-
         status: 'ACTIVE',
-
         deletedAt: null,
       },
-
-      select: {
-        id: true,
-      },
+      select: { id: true },
     });
 
     if (!employee) {
       throw new ForbiddenException({
         code: 'EMPLOYEE_PROFILE_REQUIRED',
-
         message: 'An active employee profile is required.',
       });
     }
@@ -632,33 +438,13 @@ export class SitesService {
   private mapSite(site: LoadedSite): SiteResponse {
     return {
       id: site.id,
-
       organizationId: site.organizationId,
-
-      ownerEmployeeId: site.ownerEmployeeId,
-
       name: site.name,
-
       slug: site.slug,
-
       description: site.description,
-
       status: site.status,
-
-      owner: {
-        employeeId: site.ownerEmployee.id,
-
-        employeeCode: site.ownerEmployee.employeeCode,
-
-        userId: site.ownerEmployee.userId,
-
-        displayName: site.ownerEmployee.user.displayName,
-      },
-
       domains: site.domains.map((domain) => this.mapDomain(domain)),
-
       createdAt: site.createdAt.toISOString(),
-
       updatedAt: site.updatedAt.toISOString(),
     };
   }
@@ -666,37 +452,23 @@ export class SitesService {
   private mapDomain(domain: SiteDomainModel): SiteDomainResponse {
     return {
       id: domain.id,
-
       organizationId: domain.organizationId,
-
       siteId: domain.siteId,
-
       hostname: domain.hostname,
-
       isPrimary: domain.isPrimary,
-
       status: domain.status,
-
       monitoringEnabled: domain.monitoringEnabled,
-
       createdAt: domain.createdAt.toISOString(),
-
       updatedAt: domain.updatedAt.toISOString(),
     };
   }
 
   private isUniqueConstraintError(error: unknown): boolean {
-    if (typeof error !== 'object' || error === null) {
-      return false;
-    }
-
     return (
+      typeof error === 'object' &&
+      error !== null &&
       'code' in error &&
-      (
-        error as {
-          code?: unknown;
-        }
-      ).code === 'P2002'
+      (error as { code?: unknown }).code === 'P2002'
     );
   }
 }
