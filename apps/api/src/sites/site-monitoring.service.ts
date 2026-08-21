@@ -1,7 +1,6 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import type { AuthenticatedPrincipal } from '@crm/auth';
-
 import type { SiteMonitorCheckListResponse, SiteMonitoringResponse } from '@crm/contracts';
 
 import { DatabaseService } from '../database/database.service.js';
@@ -25,35 +24,18 @@ export class SiteMonitoringService {
         siteId,
         deletedAt: null,
       },
-
       include: {
         monitorState: true,
-
         monitorIncidents: {
-          where: {
-            status: 'OPEN',
-          },
-
-          orderBy: {
-            openedAt: 'desc',
-          },
-
+          where: { status: 'OPEN' },
+          orderBy: { openedAt: 'desc' },
           take: 1,
         },
       },
-
-      orderBy: [
-        {
-          isPrimary: 'desc',
-        },
-        {
-          hostname: 'asc',
-        },
-      ],
+      orderBy: [{ isPrimary: 'desc' }, { hostname: 'asc' }],
     });
 
     const primaryDomain = domains.find((domain) => domain.isPrimary) ?? null;
-
     const status =
       primaryDomain?.monitoringEnabled === true
         ? (primaryDomain.monitorState?.status ?? 'UNKNOWN')
@@ -63,10 +45,8 @@ export class SiteMonitoringService {
       siteId,
       status,
       primaryDomainId: primaryDomain?.id ?? null,
-
       domains: domains.map((domain) => {
         const state = domain.monitorState;
-
         const incident = domain.monitorIncidents[0] ?? null;
 
         return {
@@ -74,35 +54,20 @@ export class SiteMonitoringService {
           hostname: domain.hostname,
           isPrimary: domain.isPrimary,
           monitoringEnabled: domain.monitoringEnabled,
-
           status: state?.status ?? 'UNKNOWN',
-
           consecutiveFailures: state?.consecutiveFailures ?? 0,
-
           consecutiveSuccesses: state?.consecutiveSuccesses ?? 0,
-
           lastCheckedAt: state?.lastCheckedAt?.toISOString() ?? null,
-
           lastSuccessAt: state?.lastSuccessAt?.toISOString() ?? null,
-
           lastFailureAt: state?.lastFailureAt?.toISOString() ?? null,
-
           lastHttpStatus: state?.lastHttpStatus ?? null,
-
           lastLatencyMs: state?.lastLatencyMs ?? null,
-
           lastResolvedAddress: state?.lastResolvedAddress ?? null,
-
           lastFailureCode: state?.lastFailureCode ?? null,
-
           lastFailureMessage: state?.lastFailureMessage ?? null,
-
           downSince: state?.downSince?.toISOString() ?? null,
-
           recoveredAt: state?.recoveredAt?.toISOString() ?? null,
-
           nextCheckAt: state?.nextCheckAt?.toISOString() ?? null,
-
           openIncident: incident
             ? {
                 id: incident.id,
@@ -133,10 +98,7 @@ export class SiteMonitoringService {
         siteId,
         deletedAt: null,
       },
-
-      select: {
-        id: true,
-      },
+      select: { id: true },
     });
 
     if (!domain) {
@@ -152,11 +114,7 @@ export class SiteMonitoringService {
         siteId,
         siteDomainId: domainId,
       },
-
-      orderBy: {
-        checkedAt: 'desc',
-      },
-
+      orderBy: { checkedAt: 'desc' },
       take: 100,
     });
 
@@ -189,17 +147,26 @@ export class SiteMonitoringService {
         id: siteId,
         organizationId: principal.organizationId,
         deletedAt: null,
-
         ...(employeeId
           ? {
-              ownerEmployeeId: employeeId,
+              trafficPools: {
+                some: {
+                  deletedAt: null,
+                  members: {
+                    some: {
+                      status: 'ACTIVE',
+                      whatsAppNumber: {
+                        deletedAt: null,
+                        assignedEmployeeId: employeeId,
+                      },
+                    },
+                  },
+                },
+              },
             }
           : {}),
       },
-
-      select: {
-        id: true,
-      },
+      select: { id: true },
     });
 
     if (!site) {
@@ -218,10 +185,7 @@ export class SiteMonitoringService {
         status: 'ACTIVE',
         deletedAt: null,
       },
-
-      select: {
-        id: true,
-      },
+      select: { id: true },
     });
 
     if (!employee) {
