@@ -197,8 +197,8 @@ export type UpdateWhatsAppNumberRequest = Readonly<{
   status?: WhatsAppNumberStatus;
 }>;
 
+export * from './management.js';
 export * from './traffic-pool.js';
-
 export * from './ads.js';
 export * from './site-monitoring.js';
 export * from './notifications.js';
